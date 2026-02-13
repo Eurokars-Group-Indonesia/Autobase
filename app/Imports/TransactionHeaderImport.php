@@ -247,7 +247,7 @@ class TransactionHeaderImport implements
                 ];
             }
 
-            // Validate phone numbers (P1-P4) - optional, max 20 chars, numeric only
+            // Validate phone numbers (P1-P4) - optional, max 20 chars, alphanumeric
             for ($i = 1; $i <= 4; $i++) {
                 $phoneField = 'p' . $i;
                 if (!empty($row[$phoneField])) {
@@ -260,13 +260,13 @@ class TransactionHeaderImport implements
                             'error' => 'Phone Number ' . $i . ' must be 20 characters or less'
                         ];
                     }
-                    // Validate numeric only (allow string or number)
-                    if (!preg_match('/^[0-9]+$/', $phoneValue)) {
+                    // Allow alphanumeric characters, spaces, and common phone symbols (+, -, (, ), .)
+                    if (!preg_match('/^[0-9A-Za-z\s\+\-\(\)\.]+$/', $phoneValue)) {
                         $rowErrors[] = [
                             'row' => $this->currentRow,
                             'field' => 'P' . $i,
                             'value' => $phoneValue,
-                            'error' => 'Phone Number ' . $i . ' must contain only numbers'
+                            'error' => 'Phone Number ' . $i . ' contains invalid characters. Only letters, numbers, spaces, and symbols (+, -, (, ), .) are allowed'
                         ];
                     }
                 }
