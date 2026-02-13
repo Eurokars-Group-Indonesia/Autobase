@@ -1,0 +1,4 @@
+Part,Desc,Qty,SellPrice,Disc%,ExtPrice,MP,VAT,MV,CostPr,AnalCode,InvStat,UOI,MpU,WIPNo,Line,Acct,Dept,InvNo,FC,SaleType,Wcode,MenuFlag,Contrib,DateDecard,HMagic1,HMagic2,PO,GRN,Menu,LR,Supp,MenuLink,CurPrice,Parts/Labour
+PART001,Engine Oil Change,2,150.00,0.10,270.00,150.00,Y,Y,100.00,A,C,Litre,30,1001,1,ACC001,Service,5001,FC1,S,W01,Y,0.50,2026-01-22,1,2,PO001,GRN001,1,Y,SUP001,1,150.00,P
+PART002,Brake Pad Replacement,4,200.00,0.05,760.00,200.00,Y,Y,150.00,B,C,Each,45,1001,2,ACC002,Service,5001,FC1,S,,N,0.60,2026-01-22,1,2,PO002,GRN002,2,Y,SUP002,2,200.00,P
+LAB001,Labour Charge,1,50.00,0.00,50.00,50.00,N,N,0.00,C,C,Hour,60,1001,3,ACC003,Service,5001,FC1,S,W03,N,0.00,2026-01-22,1,2,,,3,Y,,3,50.00,L

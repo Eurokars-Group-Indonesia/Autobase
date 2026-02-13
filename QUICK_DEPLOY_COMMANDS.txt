@@ -1,0 +1,43 @@
+===========================================
+QUICK DEPLOY COMMANDS - Copy Paste Ready
+===========================================
+
+## 1. Upload File ke Server (dari local machine)
+
+scp Dockerfile root@egi-dockerdev:/home/itteam/service-history-new-old/
+scp docker-compose.yml root@egi-dockerdev:/home/itteam/service-history-new-old/
+scp docker/entrypoint.sh root@egi-dockerdev:/home/itteam/service-history-new-old/docker/
+scp docker/supervisord.conf root@egi-dockerdev:/home/itteam/service-history-new-old/docker/
+
+## 2. SSH ke Server dan Rebuild (copy paste semua baris ini)
+
+ssh root@egi-dockerdev
+cd /home/itteam/service-history-new-old
+docker-compose down
+docker rmi service-history-new-old_app service-history-new-old_queue 2>/dev/null || true
+docker-compose build --no-cache
+docker-compose up -d
+docker-compose logs -f app
+
+## 3. Verifikasi (di server, buka terminal baru)
+
+docker exec -it laravel_app whoami
+docker exec -it laravel_app ls -la /var/www/html/storage
+docker exec -it laravel_app touch /var/www/html/storage/test.txt && docker exec -it laravel_app rm /var/www/html/storage/test.txt && echo "Write test OK!"
+
+## 4. Jika masih ada error, jalankan ini:
+
+docker exec -it laravel_app rm -rf /var/www/html/storage/framework/cache/*
+docker exec -it laravel_app rm -rf /var/www/html/bootstrap/cache/*
+docker-compose restart app queue
+
+===========================================
+EXPECTED OUTPUT (No Errors):
+===========================================
+
+✓ Database connection successful!
+✓ Migrations completed successfully!
+✓ Storage permissions fixed!
+✓ Laravel is ready!
+
+===========================================
