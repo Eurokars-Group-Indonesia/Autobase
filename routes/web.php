@@ -25,12 +25,14 @@ Route::middleware('guest')->group(function () {
 });
 
 // Authenticated Routes
-Route::middleware(['auth', 'has.role', 'throttle:web'])->group(function () {
+Route::middleware(['auth', 'throttle:web'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/chart-data', [DashboardController::class, 'getChartData'])->name('dashboard.chart-data');
-    
+});
+
+Route::middleware(['auth', 'has.role', 'throttle:web'])->group(function () {
     // User Management
     Route::middleware('permission:users.view')->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
