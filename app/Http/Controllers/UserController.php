@@ -342,7 +342,7 @@ class UserController extends Controller
     }
 
     /**
-     * Fetch users from Microsoft Graph API with automatic token refresh on 401
+     * Fetch users from Microsoft Graph API with automatic token refresh on 401 and pagination
      *
      * @param string $accessToken
      * @param Request $request
@@ -352,24 +352,55 @@ class UserController extends Controller
     private function fetchUsersFromGraphWithRefresh($accessToken, $request, $retryCount = 0)
     {
         try {
-            $client = new \GuzzleHttp\Client();
-            $response = $client->request('GET', 'https://graph.microsoft.com/v1.0/users', [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $accessToken,
-                    'Content-Type' => 'application/json',
-                ],
-                'query' => [
+            $allUsers = [];
+            $nextUrl = 'https://graph.microsoft.com/v1.0/users';
+            
+            while ($nextUrl !== null) {
+                $client = new \GuzzleHttp\Client();
+                $query = [
                     '$select' => 'id,displayName,givenName,surname,mail,userPrincipalName,mobilePhone',
                     '$top' => 999 // Maximum users per request
-                ]
-            ]);
+                ];
+                
+                // Parse nextUrl if it exists (contains $skiptoken for pagination)
+                $parsedUrl = parse_url($nextUrl);
+                if (isset($parsedUrl['query'])) {
+                    parse_str($parsedUrl['query'], $queryParams);
+                    if (isset($queryParams['$skiptoken'])) {
+                        $query['$skiptoken'] = $queryParams['$skiptoken'];
+                    }
+                }
+                
+                $response = $client->request('GET', $nextUrl, [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $accessToken,
+                        'Content-Type' => 'application/json',
+                    ],
+                    'query' => $query
+                ]);
 
-            $data = json_decode($response->getBody()->getContents(), true);
-            return $data['value'] ?? null;
+                $data = json_decode($response->getBody()->getContents(), true);
+                
+                // Add users from this page
+                if (isset($data['value']) && is_array($data['value'])) {
+                    $allUsers = array_merge($allUsers, $data['value']);
+                }
+                
+                // Check if there are more pages
+                $nextUrl = $data['@odata.nextLink'] ?? null;
+                
+                \Log::info('Fetched ' . count($data['value']) . ' users from Graph API page', [
+                    'total_so_far' => count($allUsers),
+                    'has_more' => $nextUrl !== null
+                ]);
+            }
+            
+            \Log::info('Total users fetched from Graph API: ' . count($allUsers));
+            return $allUsers;
 
         } catch (\GuzzleHttp\Exception\ClientException $e) {
             $statusCode = $e->getResponse() ? $e->getResponse()->getStatusCode() : 0;
-            
+
             // Handle 401 Unauthorized - Token expired or invalid
             if ($statusCode === 401 && $retryCount < 1) {
                 \Log::warning('Azure Graph API returned 401, attempting token refresh...', [
@@ -384,7 +415,7 @@ class UserController extends Controller
                 if ($refreshResult['success']) {
                     $newAccessToken = $refreshResult['access_token'];
                     \Log::info('Token refreshed successfully, retrying Graph API request...');
-                    
+
                     // Retry the request with new token (increment retry count)
                     return $this->fetchUsersFromGraphWithRefresh($newAccessToken, $request, $retryCount + 1);
                 } else {
@@ -399,12 +430,12 @@ class UserController extends Controller
                 'status_code' => $statusCode,
                 'retry_count' => $retryCount
             ]);
-            
+
             if ($e->hasResponse()) {
                 \Log::error('Response: ' . $e->getResponse()->getBody()->getContents());
             }
             return null;
-            
+
         } catch (\Exception $e) {
             \Log::error('Error fetching users from Graph API: ' . $e->getMessage(), [
                 'retry_count' => $retryCount
