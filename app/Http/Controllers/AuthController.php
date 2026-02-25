@@ -48,25 +48,23 @@ class AuthController extends Controller
     /**
      * Redirect to Azure SSO
      */
-    
-        public function redirectToAzure()
-        {
-            $tenant = config('services.azure.tenant');
-            $clientId = config('services.azure.client_id');
-            
-            Log::info('Azure SSO Redirect initiated', [
-                'tenant' => $tenant,
-                'client_id' => $clientId,
-                'redirect_uri' => config('services.azure.redirect'),
-                'expected_auth_url' => "https://login.microsoftonline.com/{$tenant}/oauth2/v2.0/authorize"
-            ]);
-            
-            // Use only user-consentable scopes (remove User.Read.All which requires admin consent)
-            return Socialite::driver('azure')
-                ->scopes(['openid', 'profile', 'email', 'User.Read', 'offline_access'])
-                ->redirect();
-        }
-
+    public function redirectToAzure()
+    {
+        $tenant = config('services.azure.tenant');
+        $clientId = config('services.azure.client_id');
+        
+        Log::info('Azure SSO Redirect initiated', [
+            'tenant' => $tenant,
+            'client_id' => $clientId,
+            'redirect_uri' => config('services.azure.redirect'),
+            'expected_auth_url' => "https://login.microsoftonline.com/{$tenant}/oauth2/v2.0/authorize"
+        ]);
+        
+        // Use only user-consentable scopes (remove User.Read.All which requires admin consent)
+        return Socialite::driver('azure')
+            ->scopes(['openid', 'profile', 'email', 'User.Read', 'offline_access'])
+            ->redirect();
+    }
 
     /**
      * Handle Azure SSO callback
@@ -296,12 +294,80 @@ class AuthController extends Controller
      */
     public static function getValidAzureToken(Request $request)
     {
+        $authController = new self();
+        
         // Check if token exists
         if (!$request->session()->has('azure_access_token')) {
+            Log::warning('No Azure access token in session, checking if user is authenticated via Azure SSO...');
+            
+            // Check if user is logged in and has Azure user_id (indicating SSO login)
+            if (Auth::check() && Auth::user()->user_id) {
+                Log::info('User is logged in via Azure SSO but token is missing from session. Token may have been lost due to session rotation or timeout.', [
+                    'user_id' => Auth::id(),
+                    'azure_user_id' => Auth::user()->user_id
+                ]);
+                
+                // In this case, we need to inform the user to re-authenticate
+                // We cannot refresh without a refresh token
+                return [
+                    'success' => false,
+                    'token' => null,
+                    'message' => 'Azure session expired. Please re-authenticate by logging in again with Microsoft SSO.'
+                ];
+            }
+            
             return [
                 'success' => false,
                 'token' => null,
                 'message' => 'No Azure access token found. Please login with Microsoft SSO first.'
+            ];
+        }
+
+        // Check if refresh token exists (needed for token refresh)
+        if (!$request->session()->has('azure_refresh_token')) {
+            Log::warning('Access token exists but refresh token is missing', [
+                'user_id' => Auth::id()
+            ]);
+            
+            // If access token still exists, try to use it
+            $accessToken = $request->session()->get('azure_access_token');
+            
+            // Check expiry
+            if ($request->session()->has('azure_token_expires_at')) {
+                $expiresAt = $request->session()->get('azure_token_expires_at');
+                
+                // If token is expired or will expire in next 5 minutes
+                if (now()->addMinutes(5)->greaterThan($expiresAt)) {
+                    Log::warning('Access token expired and no refresh token available', [
+                        'user_id' => Auth::id(),
+                        'expires_at' => $expiresAt
+                    ]);
+                    
+                    return [
+                        'success' => false,
+                        'token' => null,
+                        'message' => 'Azure access token expired and refresh token not available. Please re-authenticate.'
+                    ];
+                }
+                
+                // Token is still valid
+                Log::info('Using existing access token (no refresh token available but not expired)', [
+                    'user_id' => Auth::id(),
+                    'expires_at' => $expiresAt
+                ]);
+                
+                return [
+                    'success' => true,
+                    'token' => $accessToken,
+                    'message' => 'Token is valid (no refresh token available)'
+                ];
+            }
+            
+            // No expiry info, assume valid
+            return [
+                'success' => true,
+                'token' => $accessToken,
+                'message' => 'Token is valid (no expiry info)'
             ];
         }
 
@@ -313,12 +379,19 @@ class AuthController extends Controller
 
             // If token is expired or will expire in next 5 minutes, refresh it
             if (now()->addMinutes(5)->greaterThan($expiresAt)) {
-                Log::info('Azure access token expired or expiring soon, attempting to refresh...');
+                Log::info('Azure access token expired or expiring soon, attempting to refresh...', [
+                    'user_id' => Auth::id(),
+                    'expires_at' => $expiresAt
+                ]);
 
-                $authController = new self();
                 $refreshResult = $authController->refreshAzureToken($request);
 
                 if (!$refreshResult['success']) {
+                    Log::error('Token refresh failed', [
+                        'user_id' => Auth::id(),
+                        'message' => $refreshResult['message']
+                    ]);
+                    
                     return [
                         'success' => false,
                         'token' => null,
@@ -327,7 +400,9 @@ class AuthController extends Controller
                 }
 
                 $accessToken = $refreshResult['access_token'];
-                Log::info('Azure access token refreshed successfully');
+                Log::info('Azure access token refreshed successfully', [
+                    'user_id' => Auth::id()
+                ]);
             }
         }
 

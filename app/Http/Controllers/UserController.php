@@ -31,10 +31,10 @@ class UserController extends Controller
         if (request()->has('search') && request('search') != '') {
             $search = request('search');
             $query->where(function($q) use ($search) {
-                $q->where('name', 'like', $search . '%')
-                  ->orWhere('email', 'like', $search . '%')
-                  ->orWhere('full_name', 'like', $search . '%')
-                  ->orWhere('phone', 'like', $search . '%');
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('email', 'like', '%' . $search . '%')
+                  ->orWhere('full_name', 'like', '%' . $search . '%')
+                  ->orWhere('phone', 'like', '%' . $search . '%');
             });
         }
         
@@ -219,118 +219,203 @@ class UserController extends Controller
     /**
      * Sync users from Microsoft Azure Graph API
      */
-    
-        
-            public function syncFromAzure(Request $request)
-            {
-                try {
-                    // Get valid Azure access token (will auto-refresh if expired)
-                    $tokenResult = \App\Http\Controllers\AuthController::getValidAzureToken($request);
 
-                    if (!$tokenResult['success']) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => $tokenResult['message']
-                        ], 401);
-                    }
 
-                    $accessToken = $tokenResult['token'];
+    public function syncFromAzure(Request $request)
+    {
+        try {
+            // Get valid Azure access token (will auto-refresh if expired)
+            $tokenResult = \App\Http\Controllers\AuthController::getValidAzureToken($request);
 
-                    // Fetch users from Microsoft Graph API
-                    $graphUsers = $this->fetchUsersFromGraph($accessToken);
-
-                    if (!$graphUsers) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Failed to fetch users from Microsoft Graph API.'
-                        ], 500);
-                    }
-
-                    $syncedCount = 0;
-                    $updatedCount = 0;
-                    $createdCount = 0;
-                    $errors = [];
-
-                    foreach ($graphUsers as $graphUser) {
-                        try {
-                            $azureUserId = $graphUser['id'];
-                            $email = $graphUser['mail'] ?? $graphUser['userPrincipalName'];
-                            $displayName = $graphUser['displayName'];
-                            $givenName = $graphUser['givenName'] ?? '';
-                            $surname = $graphUser['surname'] ?? '';
-                            $mobilePhone = $graphUser['mobilePhone'] ?? null;
-
-                            // Find user by Azure user_id
-                            $user = User::where('user_id', $azureUserId)->first();
-
-                            if ($user) {
-                                // Update existing user
-                                $user->update([
-                                    'name' => $displayName,
-                                    'email' => $email,
-                                    'full_name' => trim($givenName . ' ' . $surname) ?: $displayName,
-                                    'phone' => $mobilePhone,
-                                    'updated_by' => auth()->id(),
-                                ]);
-                                $updatedCount++;
-                            } else {
-                                // Create new user
-                                $user = new User();
-                                $user->user_id = $azureUserId;
-                                $user->dealer_id = null;
-                                $user->name = $displayName;
-                                $user->email = $email;
-                                $user->full_name = trim($givenName . ' ' . $surname) ?: $displayName;
-                                $user->phone = $mobilePhone;
-                                $user->is_active = '1';
-                                $user->created_by = auth()->id();
-                                $user->updated_by = auth()->id();
-                                $user->save();
-                                $createdCount++;
-                            }
-
-                            $syncedCount++;
-
-                        } catch (\Exception $e) {
-                            \Log::error('Error syncing user from Azure: ' . $e->getMessage(), [
-                                'azure_user_id' => $azureUserId ?? 'unknown',
-                                'email' => $email ?? 'unknown'
-                            ]);
-                            $errors[] = [
-                                'email' => $email ?? 'unknown',
-                                'error' => $e->getMessage()
-                            ];
-                        }
-                    }
-
-                    // Flush cache
-                    Cache::flush();
-
-                    return response()->json([
-                        'success' => true,
-                        'message' => "Successfully synced {$syncedCount} users from Azure AD.",
-                        'data' => [
-                            'total_synced' => $syncedCount,
-                            'created' => $createdCount,
-                            'updated' => $updatedCount,
-                            'errors' => $errors
-                        ]
-                    ]);
-
-                } catch (\Exception $e) {
-                    \Log::error('Error in syncFromAzure: ' . $e->getMessage());
+            if (!$tokenResult['success']) {
+                \Log::error('Failed to get valid Azure token for sync', [
+                    'message' => $tokenResult['message'],
+                    'user_id' => auth()->id()
+                ]);
+                
+                // Check if the error indicates need for re-authentication
+                if (strpos($tokenResult['message'], 're-authenticate') !== false || 
+                    strpos($tokenResult['message'], 'expired') !== false) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'An error occurred while syncing users: ' . $e->getMessage()
-                    ], 500);
+                        'message' => 'Your Azure session has expired. Please log out and log in again with Microsoft SSO to sync users.',
+                        'require_reauth' => true
+                    ], 401);
+                }
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => $tokenResult['message']
+                ], 401);
+            }
+
+            $accessToken = $tokenResult['token'];
+
+            // Fetch users from Microsoft Graph API with automatic token refresh on 401
+            $graphUsers = $this->fetchUsersFromGraphWithRefresh($accessToken, $request);
+
+            if (!$graphUsers) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to fetch users from Microsoft Graph API. Please try again or contact administrator.'
+                ], 500);
+            }
+
+            $syncedCount = 0;
+            $updatedCount = 0;
+            $createdCount = 0;
+            $errors = [];
+
+            foreach ($graphUsers as $graphUser) {
+                try {
+                    $azureUserId = $graphUser['id'];
+                    $email = $graphUser['mail'] ?? $graphUser['userPrincipalName'];
+                    $displayName = $graphUser['displayName'];
+                    $givenName = $graphUser['givenName'] ?? '';
+                    $surname = $graphUser['surname'] ?? '';
+                    $mobilePhone = $graphUser['mobilePhone'] ?? null;
+
+                    // Find user by Azure user_id
+                    $user = User::where('user_id', $azureUserId)->first();
+
+                    if ($user) {
+                        // Update existing user
+                        $user->update([
+                            'name' => $displayName,
+                            'email' => $email,
+                            'full_name' => trim($givenName . ' ' . $surname) ?: $displayName,
+                            'phone' => $mobilePhone,
+                            'updated_by' => auth()->id(),
+                        ]);
+                        $updatedCount++;
+                    } else {
+                        // Create new user
+                        $user = new User();
+                        $user->user_id = $azureUserId;
+                        $user->dealer_id = null;
+                        $user->name = $displayName;
+                        $user->email = $email;
+                        $user->full_name = trim($givenName . ' ' . $surname) ?: $displayName;
+                        $user->phone = $mobilePhone;
+                        $user->is_active = '1';
+                        $user->created_by = auth()->id();
+                        $user->updated_by = auth()->id();
+                        $user->save();
+                        $createdCount++;
+                    }
+
+                    $syncedCount++;
+
+                } catch (\Exception $e) {
+                    \Log::error('Error syncing user from Azure: ' . $e->getMessage(), [
+                        'azure_user_id' => $azureUserId ?? 'unknown',
+                        'email' => $email ?? 'unknown'
+                    ]);
+                    $errors[] = [
+                        'email' => $email ?? 'unknown',
+                        'error' => $e->getMessage()
+                    ];
                 }
             }
 
+            // Flush cache
+            Cache::flush();
 
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully synced {$syncedCount} users from Azure AD.",
+                'data' => [
+                    'total_synced' => $syncedCount,
+                    'created' => $createdCount,
+                    'updated' => $updatedCount,
+                    'errors' => $errors
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error in syncFromAzure: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while syncing users: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Fetch users from Microsoft Graph API with automatic token refresh on 401
+     *
+     * @param string $accessToken
+     * @param Request $request
+     * @param int $retryCount
+     * @return array|null
+     */
+    private function fetchUsersFromGraphWithRefresh($accessToken, $request, $retryCount = 0)
+    {
+        try {
+            $client = new \GuzzleHttp\Client();
+            $response = $client->request('GET', 'https://graph.microsoft.com/v1.0/users', [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $accessToken,
+                    'Content-Type' => 'application/json',
+                ],
+                'query' => [
+                    '$select' => 'id,displayName,givenName,surname,mail,userPrincipalName,mobilePhone',
+                    '$top' => 999 // Maximum users per request
+                ]
+            ]);
+
+            $data = json_decode($response->getBody()->getContents(), true);
+            return $data['value'] ?? null;
+
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $statusCode = $e->getResponse() ? $e->getResponse()->getStatusCode() : 0;
+            
+            // Handle 401 Unauthorized - Token expired or invalid
+            if ($statusCode === 401 && $retryCount < 1) {
+                \Log::warning('Azure Graph API returned 401, attempting token refresh...', [
+                    'retry_count' => $retryCount,
+                    'error' => $e->getMessage()
+                ]);
+
+                // Refresh the token
+                $authController = new \App\Http\Controllers\AuthController();
+                $refreshResult = $authController->refreshAzureToken($request);
+
+                if ($refreshResult['success']) {
+                    $newAccessToken = $refreshResult['access_token'];
+                    \Log::info('Token refreshed successfully, retrying Graph API request...');
+                    
+                    // Retry the request with new token (increment retry count)
+                    return $this->fetchUsersFromGraphWithRefresh($newAccessToken, $request, $retryCount + 1);
+                } else {
+                    \Log::error('Token refresh failed during 401 handling', [
+                        'message' => $refreshResult['message']
+                    ]);
+                    return null;
+                }
+            }
+
+            \Log::error('Graph API Client Error: ' . $e->getMessage(), [
+                'status_code' => $statusCode,
+                'retry_count' => $retryCount
+            ]);
+            
+            if ($e->hasResponse()) {
+                \Log::error('Response: ' . $e->getResponse()->getBody()->getContents());
+            }
+            return null;
+            
+        } catch (\Exception $e) {
+            \Log::error('Error fetching users from Graph API: ' . $e->getMessage(), [
+                'retry_count' => $retryCount
+            ]);
+            return null;
+        }
+    }
 
     /**
      * Fetch users from Microsoft Graph API
-     * 
+     *
      * @param string $accessToken
      * @return array|null
      */

@@ -17,7 +17,7 @@ class BrandController extends Controller
             $search = request('search');
             $query->where(function($q) use ($search) {
                 $q->where('brand_code', 'like', $search . '%')
-                  ->orWhere('brand_name', 'like', $search . '%')
+                  ->orWhereRaw('MATCH(brand_name) AGAINST(? IN BOOLEAN MODE)', [$search . '*'])
                   ->orWhere('brand_group', 'like', $search . '%')
                   ->orWhere('country_origin', 'like', $search . '%');
             });

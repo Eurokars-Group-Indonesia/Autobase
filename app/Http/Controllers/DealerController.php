@@ -17,7 +17,7 @@ class DealerController extends Controller
             $search = request('search');
             $query->where(function($q) use ($search) {
                 $q->where('dealer_code', 'like', $search . '%')
-                  ->orWhere('dealer_name', 'like', $search . '%')
+                  ->orWhereRaw('MATCH(dealer_name) AGAINST(? IN BOOLEAN MODE)', [$search . '*'])
                   ->orWhere('city', 'like', $search . '%');
             });
         }
