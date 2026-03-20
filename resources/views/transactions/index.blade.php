@@ -336,18 +336,18 @@
                         <div class="col-md-3">
                             <label class="form-label">Search</label>
                             <input type="text" class="form-control form-control-sm" name="search" id="search"
-                                   placeholder="Customer, Chassis, Invoice No, WIP No, Reg No, Date..." 
+                                   placeholder="Customer, Chassis, Invoice, WIP, Phone, Reg No..."
                                    value="{{ request('search') }}">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Date From</label>
-                            <input type="text" class="form-control form-control-sm" id="date_from_display" 
+                            <input type="text" class="form-control form-control-sm" id="date_from_display"
                                    placeholder="Select date from" readonly>
                             <input type="hidden" name="date_from" id="date_from" value="{{ request('date_from') }}">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Date To</label>
-                            <input type="text" class="form-control form-control-sm" id="date_to_display" 
+                            <input type="text" class="form-control form-control-sm" id="date_to_display"
                                    placeholder="Select date to" readonly>
                             <input type="hidden" name="date_to" id="date_to" value="{{ request('date_to') }}">
                         </div>
@@ -691,13 +691,13 @@
             $('#per_page').val('20');
             dateFromPicker.clear();
             dateToPicker.clear();
-            
+
             // Hide clear button
             $('#clearBtn').hide();
-            
+
             // Hide export button
             $('#exportBtn').hide();
-            
+
             // Perform search with cleared filters to show default 10 data
             performSearch(1, false, false);
         });

@@ -83,28 +83,49 @@ class TransactionHeaderController extends Controller
             $sortColumn = $request->get('sort_column', 'invoice_date');
             $sortDirection = $request->get('sort_direction', 'desc');
 
-            $cacheKey = "header:{$userId}:{$search}:{$dateFrom}:{$dateTo}:${brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
+            $cacheKey = "header:{$userId}:{$search}:{$dateFrom}:{$dateTo}:{$brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
 
             // Try to get from cache (1 hour)
             $transactions = cache()->remember($cacheKey, now()->addHour(), function () use ($request, $query, $userBrandIds) {
                 // Search by text - search in header and body
                 if ($request->has('search') && $request->search != '') {
                     $search = $request->search;
-                    
+
                     // Check if search is a date format
                     $isDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $search);
-                    
+
                     $query->where(function($q) use ($search, $userBrandIds, $isDate) {
                         // Search in header fields - already filtered by brand in base query
                         $q->where(function($searchWhere) use ($search, $isDate) {
-                            // Use FULLTEXT search for customer_name and registration_no (without wildcard)
-                            // FULLTEXT indexes (idx_customer_name_fulltext, idx_registration_no_fulltext) will be used
-                            $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$search])
-                                        ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$search])
-                                        // Use prefix LIKE for chassis, invoice_no, wip_no (B-TREE indexes can be used)
-                                        ->orWhere('tx_header.chassis', 'like', $search . '%')
-                                        ->orWhere('tx_header.invoice_no', 'like', $search . '%')
-                                        ->orWhere('tx_header.wip_no', 'like', $search . '%');
+                            // Check if search looks like a phone number (contains digits, +, -, spaces, or parentheses)
+                            $isPhoneNumber = preg_match('/^[0-9+\-\s()]+$/', $search);
+                            
+                            if ($isPhoneNumber) {
+                                // Use UNION ALL for phone number search - optimized for index usage
+                                // Each subquery uses its own index (idx_phone_number_1, idx_phone_number_2, etc.)
+                                $searchWhere->whereRaw('EXISTS (
+                                    SELECT 1 FROM (
+                                        SELECT header_id, phone_number_1 AS phone FROM tx_header WHERE phone_number_1 LIKE ?
+                                        UNION ALL
+                                        SELECT header_id, phone_number_2 AS phone FROM tx_header WHERE phone_number_2 LIKE ?
+                                        UNION ALL
+                                        SELECT header_id, phone_number_3 AS phone FROM tx_header WHERE phone_number_3 LIKE ?
+                                        UNION ALL
+                                        SELECT header_id, phone_number_4 AS phone FROM tx_header WHERE phone_number_4 LIKE ?
+                                    ) AS phone_search
+                                    WHERE phone_search.header_id = tx_header.header_id
+                                    LIMIT 1
+                                )', ['%' . $search . '%', '%' . $search . '%', '%' . $search . '%', '%' . $search . '%']);
+                            } else {
+                                // Use FULLTEXT search for customer_name and registration_no (without wildcard)
+                                // FULLTEXT indexes (idx_customer_name_fulltext, idx_registration_no_fulltext) will be used
+                                $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$search])
+                                            ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$search])
+                                            // Use prefix LIKE for chassis, invoice_no, wip_no (B-TREE indexes can be used)
+                                            ->orWhere('tx_header.chassis', 'like', $search . '%')
+                                            ->orWhere('tx_header.invoice_no', 'like', $search . '%')
+                                            ->orWhere('tx_header.wip_no', 'like', $search . '%');
+                            }
 
                             // Only add date search if format matches
                             if ($isDate) {
@@ -134,7 +155,7 @@ class TransactionHeaderController extends Controller
                         });
                     });
                 }
-                
+
                 // Filter by date range - use direct comparison instead of whereDate for better index usage
                 if ($request->has('date_from') && $request->date_from != '') {
                     $query->where('tx_header.invoice_date', '>=', $request->date_from);
@@ -753,28 +774,38 @@ class TransactionHeaderController extends Controller
             $sortColumn = $request->get('sort_column', 'invoice_date');
             $sortDirection = $request->get('sort_direction', 'desc');
 
-            $cacheKey = "header:{$userId}:{$search}:{$dateFrom}:{$dateTo}:${brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
+            $cacheKey = "header:{$userId}:{$search}:{$dateFrom}:{$dateTo}:{$brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
 
             // Try to get from cache (1 hour)
             $transactions = cache()->remember($cacheKey, now()->addHour(), function () use ($request, $query, $userBrandIds) {
                 // Search by text - search in header and body
                 if ($request->has('search') && $request->search != '') {
                     $search = $request->search;
-                    
+
                     // Check if search is a date format
                     $isDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $search);
-                    
+
                     $query->where(function($q) use ($search, $userBrandIds, $isDate) {
                         // Search in header fields - already filtered by brand in base query
                         $q->where(function($searchWhere) use ($search, $isDate) {
-                            // Use FULLTEXT search for customer_name and registration_no (without wildcard)
-                            // FULLTEXT indexes (idx_customer_name_fulltext, idx_registration_no_fulltext) will be used
-                            $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$search])
-                                        ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$search])
-                                        // Use prefix LIKE for chassis, invoice_no, wip_no (B-TREE indexes can be used)
-                                        ->orWhere('tx_header.chassis', 'like', $search . '%')
-                                        ->orWhere('tx_header.invoice_no', 'like', $search . '%')
-                                        ->orWhere('tx_header.wip_no', 'like', $search . '%');
+                            // Check if search looks like a phone number (contains digits, +, -, spaces, or parentheses)
+                            $isPhoneNumber = preg_match('/^[0-9+\-\s()]+$/', $search);
+                            
+                            if ($isPhoneNumber) {
+                                $searchWhere->whereRaw(
+                                    'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
+                                    [$search]
+                                );
+                            } else {
+                                // Use FULLTEXT search for customer_name and registration_no (without wildcard)
+                                // FULLTEXT indexes (idx_customer_name_fulltext, idx_registration_no_fulltext) will be used
+                                $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$search])
+                                            ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$search])
+                                            // Use prefix LIKE for chassis, invoice_no, wip_no (B-TREE indexes can be used)
+                                            ->orWhere('tx_header.chassis', 'like', $search . '%')
+                                            ->orWhere('tx_header.invoice_no', 'like', $search . '%')
+                                            ->orWhere('tx_header.wip_no', 'like', $search . '%');
+                            }
 
                             // Only add date search if format matches
                             if ($isDate) {
@@ -804,7 +835,7 @@ class TransactionHeaderController extends Controller
                         });
                     });
                 }
-                
+
                 // Filter by date range - use direct comparison instead of whereDate for better index usage
                 if ($request->has('date_from') && $request->date_from != '') {
                     $query->where('tx_header.invoice_date', '>=', $request->date_from);

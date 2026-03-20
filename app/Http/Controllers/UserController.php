@@ -26,16 +26,21 @@ class UserController extends Controller
         $query = User::with(['roles', 'brands', 'dealer'])
             ->where('is_active', '1')
             ->whereNotIn('user_id', $superAdminUserIds); // Exclude SUPER ADMIN users
-        
-        // Search functionality
+
+        // Search functionality - search by name, email, full name
         if (request()->has('search') && request('search') != '') {
             $search = request('search');
             $query->where(function($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
                   ->orWhere('email', 'like', '%' . $search . '%')
-                  ->orWhere('full_name', 'like', '%' . $search . '%')
-                  ->orWhere('phone', 'like', '%' . $search . '%');
+                  ->orWhere('full_name', 'like', '%' . $search . '%');
             });
+        }
+
+        // Filter by phone number
+        if (request()->has('phone') && request('phone') != '') {
+            $phone = request('phone');
+            $query->where('phone', 'like', '%' . $phone . '%');
         }
         
         // Pagination
