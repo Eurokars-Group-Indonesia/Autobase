@@ -188,58 +188,6 @@
         color: white !important;
     }
 
-    /* Modal sortable column headers */
-    .sortable-header-modal {
-        position: relative;
-        user-select: none;
-        transition: background-color 0.2s;
-        cursor: pointer;
-    }
-
-    .sortable-header-modal:hover {
-        background-color: #fa891a !important;
-        color: white;
-    }
-
-    .sortable-header-modal .sort-icon {
-        display: inline-block;
-        margin-left: 5px;
-        font-size: 10px;
-    }
-
-    /* Show both icons by default with gray color */
-    .sortable-header-modal .sort-icon i {
-        display: inline-block;
-        color: #6c757d !important;
-        opacity: 0.5;
-    }
-
-    /* Hide both icons when column is sorted */
-    .sortable-header-modal.sorted-asc .sort-icon i,
-    .sortable-header-modal.sorted-desc .sort-icon i {
-        display: none !important;
-    }
-
-    /* Show only up arrow in white for ascending */
-    .sortable-header-modal.sorted-asc .sort-icon .bi-arrow-up {
-        display: inline-block !important;
-        color: white !important;
-        opacity: 1 !important;
-    }
-
-    /* Show only down arrow in white for descending */
-    .sortable-header-modal.sorted-desc .sort-icon .bi-arrow-down {
-        display: inline-block !important;
-        color: white !important;
-        opacity: 1 !important;
-    }
-
-    .sortable-header-modal.sorted-asc,
-    .sortable-header-modal.sorted-desc {
-        background-color: #fa891a !important;
-        color: white !important;
-    }
-
     /* Inline body details sortable column headers */
     .sortable-header-inline {
         position: relative;
@@ -408,42 +356,18 @@
                             <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
                                 <tr>
                                     <th style="width: 50px;" class="text-center">No</th>
-                                    <th class="text-center sortable-header-modal" data-column="part_no" style="cursor: pointer;">
-                                        Part No <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
-                                    </th>
-                                    <th class="text-center sortable-header-modal" data-column="description" style="cursor: pointer;">
-                                        Description <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
-                                    </th>
-                                    <th class="text-center sortable-header-modal" data-column="date_decard" style="cursor: pointer;">
-                                        Date Decard <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
-                                    </th>
-                                    <th class="text-center sortable-header-modal" data-column="qty" style="cursor: pointer;">
-                                        Qty <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
-                                    </th>
-                                    <th class="text-center sortable-header-modal" data-column="cost_price" style="cursor: pointer;">
-                                        Cost Price <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
-                                    </th>
-                                    <th class="text-center sortable-header-modal" data-column="selling_price" style="cursor: pointer;">
-                                        Selling Price <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
-                                    </th>
-                                    <th class="text-center sortable-header-modal" data-column="discount" style="cursor: pointer;">
-                                        Discount % <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
-                                    </th>
-                                    <th class="text-center sortable-header-modal" data-column="extended_price" style="cursor: pointer;">
-                                        Extended Price <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
-                                    </th>
-                                    <th class="text-center sortable-header-modal" data-column="unit" style="cursor: pointer;">
-                                        Unit <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
-                                    </th>
-                                    <th class="text-center sortable-header-modal" data-column="vat" style="cursor: pointer;">
-                                        VAT <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
-                                    </th>
-                                    <th class="text-center sortable-header-modal" data-column="analysis_code" style="cursor: pointer;">
-                                        Analysis Code <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
-                                    </th>
-                                    <th class="text-center sortable-header-modal" data-column="part_or_labour" style="cursor: pointer;">
-                                        Parts/Labour <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
-                                    </th>
+                                    <th class="text-center">Part No</th>
+                                    <th class="text-center">Description</th>
+                                    <th class="text-center">Date Decard</th>
+                                    <th class="text-center">Qty</th>
+                                    <th class="text-center">Cost Price</th>
+                                    <th class="text-center">Selling Price</th>
+                                    <th class="text-center">Discount %</th>
+                                    <th class="text-center">Extended Price</th>
+                                    <th class="text-center">Unit</th>
+                                    <th class="text-center">VAT</th>
+                                    <th class="text-center">Analysis Code</th>
+                                    <th class="text-center">Parts/Labour</th>
                                 </tr>
                             </thead>
                             <tbody id="detailsTableBody">
@@ -769,100 +693,20 @@
             }
         }
 
-        // Modal sorting variables
-        let modalSortColumn = 'line';
-        let modalSortDirection = 'asc';
-        let currentModalData = null;
-        let currentWipNo = null;
-        let currentInvNo = null;
-        let currentPosCode = null;
-        let currentMagicId = null;
-
-        // Modal sortable header click handler
-        $(document).on('click', '.sortable-header-modal', function(e) {
-            e.preventDefault();
-            const column = $(this).data('column');
-
-            // Toggle sort direction
-            if (modalSortColumn === column) {
-                modalSortDirection = modalSortDirection === 'asc' ? 'desc' : 'asc';
-            } else {
-                modalSortColumn = column;
-                modalSortDirection = 'asc';
-            }
-
-            // Update sort icons
-            updateModalSortIcons(modalSortColumn, modalSortDirection);
-
-            // Re-render the table with sorted data
-            if (currentModalData) {
-                renderModalTable(currentModalData);
-            }
-        });
-
-        function updateModalSortIcons(column, direction) {
-            // Remove all sort classes
-            $('.sortable-header-modal').removeClass('sorted-asc sorted-desc');
-
-            // Add appropriate class to current column
-            const header = $('.sortable-header-modal[data-column="' + column + '"]');
-            if (direction === 'asc') {
-                header.addClass('sorted-asc');
-            } else {
-                header.addClass('sorted-desc');
-            }
-        }
-
-        function renderModalTable(data) {
-            let totalExtPrice = 0;
-            let html = '';
-
-            data.forEach(function(item, index) {
-                totalExtPrice += parseFloat(item.extended_price || 0);
-
-                const dateDecard = item.date_decard ? new Date(item.date_decard).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : '-';
-
-                html += `
-                    <tr>
-                        <td class="text-center">${index + 1}</td>
-                        <td>${item.part_no || '-'}</td>
-                        <td>${item.description || '-'}</td>
-                        <td class="text-center">${dateDecard}</td>
-                        <td class="text-end">${parseFloat(item.qty || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td class="text-end">${parseFloat(item.cost_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td class="text-end">${parseFloat(item.selling_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td class="text-end">${parseFloat(item.discount || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}%</td>
-                        <td class="text-end">${parseFloat(item.extended_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td>${item.unit || '-'}</td>
-                        <td>${item.vat || '-'}</td>
-                        <td>${item.analysis_code || '-'}</td>
-                        <td class="text-center">
-                            <span class="badge bg-${item.part_or_labour === 'P' ? 'primary' : 'success'}">
-                                ${item.part_or_labour === 'P' ? 'Part' : 'Labour'}
-                            </span>
-                        </td>
-                    </tr>
-                `;
-            });
-
-            $('#detailsTableBody').html(html);
-            $('#totalExtPrice').text(totalExtPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
-        }
-
         // Inline body details sorting
         $(document).on('click', '.sortable-header-inline', function(e) {
             e.preventDefault();
             const $header = $(this);
             const $tbody = $header.closest('table').find('.body-details-tbody');
             const column = $header.data('column');
-            
+
             // Get current sort direction
             const isAsc = !$header.hasClass('sorted-asc');
-            
+
             // Update sort icons for this table
             $header.closest('thead').find('.sortable-header-inline').removeClass('sorted-asc sorted-desc');
             $header.addClass(isAsc ? 'sorted-asc' : 'sorted-desc');
-            
+
             // Get rows and sort them
             const $rows = $tbody.find('tr').get();
             
@@ -936,17 +780,6 @@
 
             console.log('View details clicked:', wipNo, invNo, magicId);
 
-            // Store current parameters for sorting
-            currentWipNo = wipNo;
-            currentInvNo = invNo;
-            currentPosCode = posCode;
-            currentMagicId = magicId;
-
-            // Reset modal sorting state
-            modalSortColumn = 'line';
-            modalSortDirection = 'asc';
-            $('.sortable-header-modal').removeClass('sorted-asc sorted-desc');
-
             // Show modal
             const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
             modal.show();
@@ -976,11 +809,39 @@
                     $('#modalLoading').hide();
 
                     if (response.success && response.data.length > 0) {
-                        // Store data for client-side sorting
-                        currentModalData = response.data;
-                        
-                        // Render the table
-                        renderModalTable(currentModalData);
+                        let totalExtPrice = 0;
+                        let html = '';
+
+                        response.data.forEach(function(item, index) {
+                            totalExtPrice += parseFloat(item.extended_price || 0);
+
+                            const dateDecard = item.date_decard ? new Date(item.date_decard).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : '-';
+
+                            html += `
+                                <tr>
+                                    <td class="text-center">${index + 1}</td>
+                                    <td>${item.part_no || '-'}</td>
+                                    <td>${item.description || '-'}</td>
+                                    <td class="text-center">${dateDecard}</td>
+                                    <td class="text-end">${parseFloat(item.qty || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-end">${parseFloat(item.cost_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-end">${parseFloat(item.selling_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td class="text-end">${parseFloat(item.discount || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}%</td>
+                                    <td class="text-end">${parseFloat(item.extended_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td>${item.unit || '-'}</td>
+                                    <td>${item.vat || '-'}</td>
+                                    <td>${item.analysis_code || '-'}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-${item.part_or_labour === 'P' ? 'primary' : 'success'}">
+                                            ${item.part_or_labour === 'P' ? 'Part' : 'Labour'}
+                                        </span>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+
+                        $('#detailsTableBody').html(html);
+                        $('#totalExtPrice').text(totalExtPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
                         $('#modalContent').show();
                     } else {
                         $('#modalError').show();
