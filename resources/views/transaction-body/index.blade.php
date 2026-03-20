@@ -78,6 +78,67 @@
     #clearBtn {
         display: none;
     }
+    
+    /* Sortable column headers */
+    .sortable-header {
+        position: relative;
+        user-select: none;
+        transition: background-color 0.2s;
+    }
+    
+    .sortable-header:hover {
+        background-color: #fa891a !important;
+        color: white;
+    }
+    
+    [data-theme="dark"] .sortable-header:hover {
+        background-color: #fa891a !important;
+        color: white;
+    }
+    
+    .sortable-header {
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .sort-icon {
+        display: inline-block;
+        margin-left: 5px;
+        font-size: 12px;
+    }
+    
+    /* Show both icons by default with gray color */
+    .sort-icon i {
+        display: inline-block;
+        color: #6c757d !important;
+        opacity: 0.5;
+    }
+    
+    /* Hide both icons when column is sorted */
+    .sortable-header.sorted-asc .sort-icon i,
+    .sortable-header.sorted-desc .sort-icon i {
+        display: none !important;
+    }
+    
+    /* Show only up arrow in white for ascending */
+    .sortable-header.sorted-asc .sort-icon .bi-arrow-up {
+        display: inline-block !important;
+        color: white !important;
+        opacity: 1 !important;
+    }
+    
+    /* Show only down arrow in white for descending */
+    .sortable-header.sorted-desc .sort-icon .bi-arrow-down {
+        display: inline-block !important;
+        color: white !important;
+        opacity: 1 !important;
+    }
+    
+    .sortable-header.sorted-asc,
+    .sortable-header.sorted-desc {
+        background-color: #fa891a !important;
+        color: white !important;
+    }
 </style>
 @endpush
 
@@ -246,7 +307,9 @@
                 date_to: $('#date_to').val(),
                 brand_code: $('#brand_code').val(),
                 per_page: $('#per_page').val(),
-                page: page
+                page: page,
+                sort_column: currentSortColumn,
+                sort_direction: currentSortDirection
             };
 
             // Show loading indicator
@@ -265,6 +328,9 @@
                         
                         // Update pagination
                         $('#paginationContainer').html(response.pagination);
+                        
+                        // Reapply sort icons after table update
+                        updateSortIcons(currentSortColumn, currentSortDirection);
                         
                         // Show content
                         $('#tableContainer').show();
@@ -350,18 +416,18 @@
         $(document).ready(function() {
             // Check if there are URL parameters
             const urlParams = new URLSearchParams(window.location.search);
-            const hasUrlParams = urlParams.has('search') || urlParams.has('date_from') || 
-                                 urlParams.has('date_to') || urlParams.has('brand_code') || 
+            const hasUrlParams = urlParams.has('search') || urlParams.has('date_from') ||
+                                 urlParams.has('date_to') || urlParams.has('brand_code') ||
                                  urlParams.has('page');
-            
+
             // Show clear button if there are URL parameters (coming from previous search)
             if (hasUrlParams && hasActiveFilters()) {
                 $('#clearBtn').show();
             }
-            
+
             // Update export button on initial load
             updateExportButton();
-            
+
             // Load data without updating URL if no params, otherwise with URL update
             performSearch({{ request('page', 1) }}, hasUrlParams, false);
         });
@@ -410,6 +476,50 @@
             const isClearButtonVisible = $('#clearBtn').is(':visible');
             performSearch(page, true, isClearButtonVisible);
         });
+
+        // Handle column sorting
+        let currentSortColumn = '{{ request('sort_column', 'date_decard') }}';
+        let currentSortDirection = '{{ request('sort_direction', 'desc') }}';
+
+        // Initialize sort icons on page load
+        $(document).ready(function() {
+            if (currentSortColumn && currentSortDirection) {
+                updateSortIcons(currentSortColumn, currentSortDirection);
+            }
+        });
+
+        $(document).on('click', '.sortable-header', function(e) {
+            e.preventDefault();
+            const column = $(this).data('column');
+            
+            // Toggle sort direction
+            if (currentSortColumn === column) {
+                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortColumn = column;
+                currentSortDirection = 'asc';
+            }
+            
+            // Update sort icons
+            updateSortIcons(currentSortColumn, currentSortDirection);
+            
+            // Perform search with new sort parameters
+            const isClearButtonVisible = $('#clearBtn').is(':visible');
+            performSearch(1, true, isClearButtonVisible);
+        });
+
+        function updateSortIcons(column, direction) {
+            // Remove all sort classes
+            $('.sortable-header').removeClass('sorted-asc sorted-desc');
+            
+            // Add appropriate class to current column
+            const header = $('.sortable-header[data-column="' + column + '"]');
+            if (direction === 'asc') {
+                header.addClass('sorted-asc');
+            } else {
+                header.addClass('sorted-desc');
+            }
+        }
     });
 </script>
 @endpush

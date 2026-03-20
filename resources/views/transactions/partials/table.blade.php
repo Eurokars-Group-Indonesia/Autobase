@@ -46,7 +46,7 @@
                         <td class="text-end">{{ $transaction->currency_code }} {{ number_format($transaction->gross_value, 2) }}</td>
                         <td class="text-end">{{ $transaction->currency_code }} {{ number_format($transaction->net_value, 2) }}</td>
                     </tr>
-                    
+
                     <!-- Body Details Row -->
                     @if(isset($transaction->bodies) && count($transaction->bodies) > 0)
                     <tr class="body-details-row">
@@ -121,26 +121,48 @@
         <thead style="position: sticky; top: 0; z-index: 10; background-color: var(--bs-table-bg);">
             <tr>
                 <th style="min-width: 80px;">Actions</th>
-                <th style="min-width: 120px;">Invoice No</th>
-                <th style="min-width: 120px;">WIP No</th>
-                <th style="min-width: 120px;">Invoice Date</th>
-                <th style="min-width: 150px;">Account</th>
-                <th style="min-width: 200px;">Customer Name</th>
-                <th style="min-width: 150px;">Registration No</th>
-                <th style="min-width: 180px;">Chassis</th>
-                <th style="min-width: 120px;">Document Type</th>
-                <th style="min-width: 120px;">POS Code</th>
-                <th style="min-width: 130px;">Gross Value</th>
-                <th style="min-width: 130px;">Net Value</th>
+                <th style="min-width: 120px; cursor: pointer;" class="sortable-header" data-column="invoice_no">
+                    Invoice No <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                </th>
+                <th style="min-width: 120px; cursor: pointer;" class="sortable-header" data-column="wip_no">
+                    WIP No <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                </th>
+                <th style="min-width: 120px; cursor: pointer;" class="sortable-header" data-column="invoice_date">
+                    Invoice Date <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                </th>
+                <th style="min-width: 150px; cursor: pointer;" class="sortable-header" data-column="account_code">
+                    Account <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                </th>
+                <th style="min-width: 200px; cursor: pointer;" class="sortable-header" data-column="customer_name">
+                    Customer Name <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                </th>
+                <th style="min-width: 150px; cursor: pointer;" class="sortable-header" data-column="registration_no">
+                    Registration No <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                </th>
+                <th style="min-width: 180px; cursor: pointer;" class="sortable-header" data-column="chassis">
+                    Chassis <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                </th>
+                <th style="min-width: 120px; cursor: pointer;" class="sortable-header" data-column="document_type">
+                    Document Type <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                </th>
+                <th style="min-width: 120px; cursor: pointer;" class="sortable-header" data-column="pos_code">
+                    POS Code <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                </th>
+                <th style="min-width: 130px; cursor: pointer;" class="sortable-header" data-column="gross_value">
+                    Gross Value <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                </th>
+                <th style="min-width: 130px; cursor: pointer;" class="sortable-header" data-column="net_value">
+                    Net Value <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                </th>
             </tr>
         </thead>
         <tbody>
             @forelse($transactions as $transaction)
                 <tr>
                     <td>
-                        <button class="btn btn-sm btn-info view-details" 
-                                data-wipno="{{ $transaction->wip_no }}" 
-                                data-invno="{{ $transaction->invoice_no }}" 
+                        <button class="btn btn-sm btn-info view-details"
+                                data-wipno="{{ $transaction->wip_no }}"
+                                data-invno="{{ $transaction->invoice_no }}"
                                 data-poscode="{{ $transaction->pos_code }}"
                                 data-magicid="{{ $transaction->magic_id }}"
                                 title="View Details">

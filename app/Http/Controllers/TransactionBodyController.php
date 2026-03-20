@@ -25,18 +25,34 @@ class TransactionBodyController extends Controller
             ->whereIn('brand_id', $userBrandIds)
             ->orderBy('brand_name')
             ->get();
-        
+
         $query = TransactionBody::with('brand')
-            ->where('tx_body.is_active', '1')
-            ->orderBy('tx_body.created_date', 'desc');
+            ->where('tx_body.is_active', '1');
         
+        // Apply sorting
+        $sortColumn = $request->get('sort_column', 'date_decard');
+        $sortDirection = $request->get('sort_direction', 'desc');
+        
+        // Validate sort column to prevent SQL injection
+        $allowedSortColumns = [
+            'part_no', 'invoice_no', 'wip_no', 'description', 'date_decard',
+            'qty', 'unit', 'cost_price', 'selling_price', 'discount',
+            'extended_price', 'part_or_labour', 'invoice_status', 'pos_code'
+        ];
+        
+        if (in_array($sortColumn, $allowedSortColumns)) {
+            $query->orderBy('tx_body.' . $sortColumn, $sortDirection);
+        } else {
+            $query->orderBy('tx_body.date_decard', 'desc');
+        }
+
         // Check if there's any search/filter parameter
         $hasSearch = $request->has('search') && $request->search != '';
         $hasDateFrom = $request->has('date_from') && $request->date_from != '';
         $hasDateTo = $request->has('date_to') && $request->date_to != '';
         $hasBrandFilter = $request->has('brand_code') && $request->brand_code != '';
         $hasFilter = $hasSearch || $hasDateFrom || $hasDateTo;
-        
+
         // Filter by user's brands or specific brand if selected
         if ($hasBrandFilter) {
             $query->where('tx_body.pos_code', $request->brand_code);
@@ -47,10 +63,10 @@ class TransactionBodyController extends Controller
                 ->toArray();
             $query->whereIn('tx_body.pos_code', $userBrandCodes);
         }
-        
+
         // Only use cache when there's search/filter (including brand filter for query optimization)
         $shouldUseCache = $hasFilter || $hasBrandFilter;
-        
+
         if ($shouldUseCache) {
             // Generate cache key based on user and search parameters
             $userId = auth()->id();
@@ -60,8 +76,10 @@ class TransactionBodyController extends Controller
             $brandCode = $request->get('brand_code', '');
             $perPage = $request->get('per_page', 10);
             $page = $request->get('page', 1);
-            
-            $cacheKey = "body:{$userId}:{$search}:{$dateFrom}:{$dateTo}:{$brandCode}:{$perPage}:{$page}";
+            $sortColumn = $request->get('sort_column', 'date_decard');
+            $sortDirection = $request->get('sort_direction', 'desc');
+
+            $cacheKey = "body:{$userId}:{$search}:{$dateFrom}:{$dateTo}:{$brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
             
             // Try to get from cache (1 hour)
             $transactions = cache()->remember($cacheKey, now()->addHour(), function () use ($request, $query) {
@@ -79,15 +97,15 @@ class TransactionBodyController extends Controller
                 if ($request->has('date_from') && $request->date_from != '') {
                     $query->whereDate('date_decard', '>=', $request->date_from);
                 }
-                
+
                 if ($request->has('date_to') && $request->date_to != '') {
                     $query->whereDate('date_decard', '<=', $request->date_to);
                 }
-                
+
                 // Pagination
                 $perPage = $request->get('per_page', 10);
                 $perPageValue = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10;
-                
+
                 return $query->paginate($perPageValue)->withQueryString();
             });
         } else {
@@ -124,18 +142,34 @@ class TransactionBodyController extends Controller
         
         // Get user's brand IDs (realtime query)
         $userBrandIds = auth()->user()->getBrandIds();
-        
+
         $query = TransactionBody::with('brand')
-            ->where('tx_body.is_active', '1')
-            ->orderBy('tx_body.created_date', 'desc');
+            ->where('tx_body.is_active', '1');
         
+        // Apply sorting
+        $sortColumn = $request->get('sort_column', 'date_decard');
+        $sortDirection = $request->get('sort_direction', 'desc');
+        
+        // Validate sort column to prevent SQL injection
+        $allowedSortColumns = [
+            'part_no', 'invoice_no', 'wip_no', 'description', 'date_decard',
+            'qty', 'unit', 'cost_price', 'selling_price', 'discount',
+            'extended_price', 'part_or_labour', 'invoice_status', 'pos_code'
+        ];
+        
+        if (in_array($sortColumn, $allowedSortColumns)) {
+            $query->orderBy('tx_body.' . $sortColumn, $sortDirection);
+        } else {
+            $query->orderBy('tx_body.date_decard', 'desc');
+        }
+
         // Check if there's any search/filter parameter
         $hasSearch = $request->has('search') && $request->search != '';
         $hasDateFrom = $request->has('date_from') && $request->date_from != '';
         $hasDateTo = $request->has('date_to') && $request->date_to != '';
         $hasBrandFilter = $request->has('brand_code') && $request->brand_code != '';
         $hasFilter = $hasSearch || $hasDateFrom || $hasDateTo;
-        
+
         // Filter by user's brands or specific brand if selected
         if ($hasBrandFilter) {
             $query->where('tx_body.pos_code', $request->brand_code);
@@ -146,10 +180,10 @@ class TransactionBodyController extends Controller
                 ->toArray();
             $query->whereIn('tx_body.pos_code', $userBrandCodes);
         }
-        
+
         // Only use cache when there's search/filter (including brand filter for query optimization)
         $shouldUseCache = $hasFilter || $hasBrandFilter;
-        
+
         if ($shouldUseCache) {
             // Generate cache key based on user and search parameters
             $userId = auth()->id();
@@ -159,8 +193,10 @@ class TransactionBodyController extends Controller
             $brandCode = $request->get('brand_code', '');
             $perPage = $request->get('per_page', 10);
             $page = $request->get('page', 1);
-            
-            $cacheKey = "body:{$userId}:{$search}:{$dateFrom}:{$dateTo}:{$brandCode}:{$perPage}:{$page}";
+            $sortColumn = $request->get('sort_column', 'date_decard');
+            $sortDirection = $request->get('sort_direction', 'desc');
+
+            $cacheKey = "body:{$userId}:{$search}:{$dateFrom}:{$dateTo}:{$brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
             
             // Try to get from cache (1 hour)
             $transactions = cache()->remember($cacheKey, now()->addHour(), function () use ($request, $query) {
@@ -178,15 +214,15 @@ class TransactionBodyController extends Controller
                 if ($request->has('date_from') && $request->date_from != '') {
                     $query->whereDate('date_decard', '>=', $request->date_from);
                 }
-                
+
                 if ($request->has('date_to') && $request->date_to != '') {
                     $query->whereDate('date_decard', '<=', $request->date_to);
                 }
-                
+
                 // Pagination
                 $perPage = $request->get('per_page', 10);
                 $perPageValue = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10;
-                
+
                 return $query->paginate($perPageValue)->withQueryString();
             });
         } else {

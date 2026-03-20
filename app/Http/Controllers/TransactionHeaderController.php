@@ -18,16 +18,16 @@ class TransactionHeaderController extends Controller
     {
         // Start timing
         $startTime = microtime(true);
-        
+
         // Get user's brand IDs (realtime query)
         $userBrandIds = auth()->user()->getBrandIds();
-        
+
         // Get brands for dropdown filter
         $brands = Brand::where('is_active', '1')
             ->whereIn('brand_id', $userBrandIds)
             ->orderBy('brand_name')
             ->get();
-        
+
         // Check if there's any search/filter parameter
         $hasSearch = $request->has('search') && $request->search != '';
         $hasDateFrom = $request->has('date_from') && $request->date_from != '';
@@ -35,11 +35,27 @@ class TransactionHeaderController extends Controller
         $hasBrandFilter = $request->has('brand_code') && $request->brand_code != '';
         // hasFilter untuk tampilan body details (hanya jika ada search atau date, bukan brand saja)
         $hasFilter = $hasSearch || $hasDateFrom || $hasDateTo;
-        
+
         // Base query with brand filter
         $query = TransactionHeader::with('brand')
-            ->where('tx_header.is_active', '1')
-            ->orderBy('tx_header.invoice_date', 'desc');
+            ->where('tx_header.is_active', '1');
+        
+        // Apply sorting
+        $sortColumn = $request->get('sort_column', 'invoice_date');
+        $sortDirection = $request->get('sort_direction', 'desc');
+        
+        // Validate sort column to prevent SQL injection
+        $allowedSortColumns = [
+            'invoice_no', 'wip_no', 'invoice_date', 'account_code', 
+            'customer_name', 'registration_no', 'chassis', 'document_type',
+            'pos_code', 'gross_value', 'net_value'
+        ];
+        
+        if (in_array($sortColumn, $allowedSortColumns)) {
+            $query->orderBy('tx_header.' . $sortColumn, $sortDirection);
+        } else {
+            $query->orderBy('tx_header.invoice_date', 'desc');
+        }
         
         // Filter by user's brands or specific brand if selected
         if ($hasBrandFilter) {
@@ -54,7 +70,7 @@ class TransactionHeaderController extends Controller
         
         // Only use cache when there's search/filter (including brand filter for query optimization)
         $shouldUseCache = $hasFilter || $hasBrandFilter;
-        
+
         if ($shouldUseCache) {
             // Generate cache key based on user and search parameters
             $userId = auth()->id();
@@ -64,9 +80,11 @@ class TransactionHeaderController extends Controller
             $brandCode = $request->get('brand_code', '');
             $perPage = $request->get('per_page', 10);
             $page = $request->get('page', 1);
-            
-            $cacheKey = "header:{$userId}:{$search}:{$dateFrom}:{$dateTo}:${brandCode}:{$perPage}:{$page}";
-            
+            $sortColumn = $request->get('sort_column', 'invoice_date');
+            $sortDirection = $request->get('sort_direction', 'desc');
+
+            $cacheKey = "header:{$userId}:{$search}:{$dateFrom}:{$dateTo}:${brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
+
             // Try to get from cache (1 hour)
             $transactions = cache()->remember($cacheKey, now()->addHour(), function () use ($request, $query, $userBrandIds) {
                 // Search by text - search in header and body
@@ -127,7 +145,7 @@ class TransactionHeaderController extends Controller
                 // Pagination
                 $perPage = $request->get('per_page', 10);
                 $perPageValue = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10;
-                
+
                 return $query->paginate($perPageValue)->withQueryString();
             });
             
@@ -708,9 +726,25 @@ class TransactionHeaderController extends Controller
         
         // Base query with brand filter
         $query = TransactionHeader::with('brand')
-            ->where('tx_header.is_active', '1')
-            ->orderBy('tx_header.invoice_date', 'desc');
+            ->where('tx_header.is_active', '1');
         
+        // Apply sorting
+        $sortColumn = $request->get('sort_column', 'invoice_date');
+        $sortDirection = $request->get('sort_direction', 'desc');
+        
+        // Validate sort column to prevent SQL injection
+        $allowedSortColumns = [
+            'invoice_no', 'wip_no', 'invoice_date', 'account_code', 
+            'customer_name', 'registration_no', 'chassis', 'document_type',
+            'pos_code', 'gross_value', 'net_value'
+        ];
+        
+        if (in_array($sortColumn, $allowedSortColumns)) {
+            $query->orderBy('tx_header.' . $sortColumn, $sortDirection);
+        } else {
+            $query->orderBy('tx_header.invoice_date', 'desc');
+        }
+
         // Filter by user's brands or specific brand if selected
         if ($hasBrandFilter) {
             $query->where('tx_header.pos_code', $request->brand_code);
@@ -724,7 +758,7 @@ class TransactionHeaderController extends Controller
         
         // Only use cache when there's search/filter (including brand filter for query optimization)
         $shouldUseCache = $hasFilter || $hasBrandFilter;
-        
+
         if ($shouldUseCache) {
             // Generate cache key based on user and search parameters
             $userId = auth()->id();
@@ -734,9 +768,11 @@ class TransactionHeaderController extends Controller
             $brandCode = $request->get('brand_code', '');
             $perPage = $request->get('per_page', 10);
             $page = $request->get('page', 1);
-            
-            $cacheKey = "header:{$userId}:{$search}:{$dateFrom}:{$dateTo}:${brandCode}:{$perPage}:{$page}";
-            
+            $sortColumn = $request->get('sort_column', 'invoice_date');
+            $sortDirection = $request->get('sort_direction', 'desc');
+
+            $cacheKey = "header:{$userId}:{$search}:{$dateFrom}:{$dateTo}:${brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
+
             // Try to get from cache (1 hour)
             $transactions = cache()->remember($cacheKey, now()->addHour(), function () use ($request, $query, $userBrandIds) {
                 // Search by text - search in header and body
@@ -797,7 +833,7 @@ class TransactionHeaderController extends Controller
                 // Pagination
                 $perPage = $request->get('per_page', 10);
                 $perPageValue = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10;
-                
+
                 return $query->paginate($perPageValue)->withQueryString();
             });
             
