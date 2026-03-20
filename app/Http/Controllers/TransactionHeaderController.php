@@ -78,7 +78,7 @@ class TransactionHeaderController extends Controller
             $dateFrom = $request->get('date_from', '');
             $dateTo = $request->get('date_to', '');
             $brandCode = $request->get('brand_code', '');
-            $perPage = $request->get('per_page', 10);
+            $perPage = $request->get('per_page', 20);
             $page = $request->get('page', 1);
             $sortColumn = $request->get('sort_column', 'invoice_date');
             $sortDirection = $request->get('sort_direction', 'desc');
@@ -97,13 +97,15 @@ class TransactionHeaderController extends Controller
                     $query->where(function($q) use ($search, $userBrandIds, $isDate) {
                         // Search in header fields - already filtered by brand in base query
                         $q->where(function($searchWhere) use ($search, $isDate) {
-                            // Use FULLTEXT search for customer_name and registration_no
-                            $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$search . '*'])
-                                        ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$search . '*'])
+                            // Use FULLTEXT search for customer_name and registration_no (without wildcard)
+                            // FULLTEXT indexes (idx_customer_name_fulltext, idx_registration_no_fulltext) will be used
+                            $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$search])
+                                        ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$search])
+                                        // Use prefix LIKE for chassis, invoice_no, wip_no (B-TREE indexes can be used)
                                         ->orWhere('tx_header.chassis', 'like', $search . '%')
                                         ->orWhere('tx_header.invoice_no', 'like', $search . '%')
                                         ->orWhere('tx_header.wip_no', 'like', $search . '%');
-                            
+
                             // Only add date search if format matches
                             if ($isDate) {
                                 $searchWhere->orWhere('tx_header.invoice_date', '=', $search);
@@ -143,8 +145,8 @@ class TransactionHeaderController extends Controller
                 }
                 
                 // Pagination
-                $perPage = $request->get('per_page', 10);
-                $perPageValue = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10;
+                $perPage = $request->get('per_page', 20);
+                $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
 
                 return $query->paginate($perPageValue)->withQueryString();
             });
@@ -184,8 +186,8 @@ class TransactionHeaderController extends Controller
             }
         } else {
             // No search/filter - execute query directly without cache
-            $perPage = $request->get('per_page', 10);
-            $perPageValue = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10;
+            $perPage = $request->get('per_page', 20);
+            $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
             $transactions = $query->paginate($perPageValue)->withQueryString();
         }
         
@@ -369,36 +371,16 @@ class TransactionHeaderController extends Controller
             $query->where(function($q) use ($search, $isDate, $wordCount, $words) {
                 // Search in header fields
                 $q->where(function($searchWhere) use ($search, $isDate, $wordCount, $words) {
-                    if ($wordCount == 1) {
-                        // Single word: use FULLTEXT with wildcard for prefix matching
-                        // Also add LIKE for middle name matching
-                        $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$search . '*'])
-                                    ->orWhere('tx_header.customer_name', 'like', '%' . $search . '%')
-                                    ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$search . '*'])
-                                    ->orWhere('tx_header.registration_no', 'like', '%' . $search . '%');
-                    } else {
-                        // Multiple words: use FULLTEXT with + operator (AND logic)
-                        // Build query: +word1 +word2 +word3
-                        $fulltextQuery = '+' . implode(' +', $words);
-                        
-                        // Use FULLTEXT for exact matching (all words must exist)
-                        $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextQuery])
-                                    ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$fulltextQuery]);
-                        
-                        // Add fallback with multiple LIKE AND conditions for names not in FULLTEXT
-                        // This catches edge cases where FULLTEXT might not work as expected
-                        $searchWhere->orWhere(function($likeWhere) use ($words) {
-                            foreach ($words as $word) {
-                                $likeWhere->where('tx_header.customer_name', 'like', '%' . trim($word) . '%');
-                            }
-                        });
-                    }
-                    
-                    // Add other fields (chassis, invoice_no, wip_no) - these use prefix search (can use B-TREE index)
+                    // Use FULLTEXT search for customer_name and registration_no (without wildcard)
+                    // FULLTEXT indexes (idx_customer_name_fulltext, idx_registration_no_fulltext) will be used
+                    $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$search])
+                                ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$search]);
+
+                    // Add other fields (chassis, invoice_no, wip_no) - use prefix LIKE (B-TREE indexes can be used)
                     $searchWhere->orWhere('tx_header.chassis', 'like', $search . '%')
                                 ->orWhere('tx_header.invoice_no', 'like', $search . '%')
                                 ->orWhere('tx_header.wip_no', 'like', $search . '%');
-                    
+
                     // Only add date search if format matches
                     if ($isDate) {
                         $searchWhere->orWhere('tx_header.invoice_date', '=', $search);
@@ -766,7 +748,7 @@ class TransactionHeaderController extends Controller
             $dateFrom = $request->get('date_from', '');
             $dateTo = $request->get('date_to', '');
             $brandCode = $request->get('brand_code', '');
-            $perPage = $request->get('per_page', 10);
+            $perPage = $request->get('per_page', 20);
             $page = $request->get('page', 1);
             $sortColumn = $request->get('sort_column', 'invoice_date');
             $sortDirection = $request->get('sort_direction', 'desc');
@@ -785,13 +767,15 @@ class TransactionHeaderController extends Controller
                     $query->where(function($q) use ($search, $userBrandIds, $isDate) {
                         // Search in header fields - already filtered by brand in base query
                         $q->where(function($searchWhere) use ($search, $isDate) {
-                            // Use FULLTEXT search for customer_name and registration_no
-                            $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$search . '*'])
-                                        ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$search . '*'])
+                            // Use FULLTEXT search for customer_name and registration_no (without wildcard)
+                            // FULLTEXT indexes (idx_customer_name_fulltext, idx_registration_no_fulltext) will be used
+                            $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$search])
+                                        ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$search])
+                                        // Use prefix LIKE for chassis, invoice_no, wip_no (B-TREE indexes can be used)
                                         ->orWhere('tx_header.chassis', 'like', $search . '%')
                                         ->orWhere('tx_header.invoice_no', 'like', $search . '%')
                                         ->orWhere('tx_header.wip_no', 'like', $search . '%');
-                            
+
                             // Only add date search if format matches
                             if ($isDate) {
                                 $searchWhere->orWhere('tx_header.invoice_date', '=', $search);
@@ -831,8 +815,8 @@ class TransactionHeaderController extends Controller
                 }
                 
                 // Pagination
-                $perPage = $request->get('per_page', 10);
-                $perPageValue = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10;
+                $perPage = $request->get('per_page', 20);
+                $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
 
                 return $query->paginate($perPageValue)->withQueryString();
             });
@@ -872,8 +856,8 @@ class TransactionHeaderController extends Controller
             }
         } else {
             // No search/filter - execute query directly without cache
-            $perPage = $request->get('per_page', 10);
-            $perPageValue = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10;
+            $perPage = $request->get('per_page', 20);
+            $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
             $transactions = $query->paginate($perPageValue)->withQueryString();
         }
         
@@ -913,12 +897,12 @@ class TransactionHeaderController extends Controller
 
         // Get user's brand IDs (realtime query)
         $userBrandIds = auth()->user()->getBrandIds();
-        
+
         // Get brand codes for user's brands
         $userBrandCodes = \App\Models\Brand::whereIn('brand_id', $userBrandIds)
             ->pluck('brand_code')
             ->toArray();
-        
+
         // Check if user has access to this brand
         if (!empty($userBrandCodes) && !in_array($request->pos_code, $userBrandCodes)) {
             return response()->json([
@@ -927,12 +911,29 @@ class TransactionHeaderController extends Controller
             ], 403);
         }
 
+        // Apply sorting
+        $sortColumn = $request->get('sort_column', 'line');
+        $sortDirection = $request->get('sort_direction', 'asc');
+
+        // Validate sort column to prevent SQL injection
+        $allowedSortColumns = [
+            'line', 'part_no', 'description', 'date_decard', 'qty',
+            'cost_price', 'selling_price', 'discount', 'extended_price',
+            'vat', 'analysis_code', 'part_or_labour', 'unit', 'invoice_status'
+        ];
+
+        if (in_array($sortColumn, $allowedSortColumns)) {
+            $orderByColumn = $sortColumn;
+        } else {
+            $orderByColumn = 'line';
+        }
+
         $bodies = \App\Models\TransactionBody::where('wip_no', $request->wip_no)
             ->where('invoice_no', $request->invoice_no)
             ->where('pos_code', $request->pos_code)
             ->where('magic_2', $request->magic_id)
             ->where('is_active', '1')
-            ->orderBy('line')
+            ->orderBy($orderByColumn, $sortDirection)
             ->get();
 
         return response()->json([

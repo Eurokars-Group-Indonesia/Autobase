@@ -22,7 +22,11 @@ class DealerController extends Controller
             });
         }
         
-        $dealers = $query->paginate(10)->withQueryString();
+        // Pagination
+        $perPage = request('per_page', 20);
+        $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
+        
+        $dealers = $query->paginate($perPageValue)->withQueryString();
         return view('dealers.index', compact('dealers'));
     }
 

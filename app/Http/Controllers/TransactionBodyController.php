@@ -74,7 +74,7 @@ class TransactionBodyController extends Controller
             $dateFrom = $request->get('date_from', '');
             $dateTo = $request->get('date_to', '');
             $brandCode = $request->get('brand_code', '');
-            $perPage = $request->get('per_page', 10);
+            $perPage = $request->get('per_page', 20);
             $page = $request->get('page', 1);
             $sortColumn = $request->get('sort_column', 'date_decard');
             $sortDirection = $request->get('sort_direction', 'desc');
@@ -103,15 +103,15 @@ class TransactionBodyController extends Controller
                 }
 
                 // Pagination
-                $perPage = $request->get('per_page', 10);
-                $perPageValue = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10;
+                $perPage = $request->get('per_page', 20);
+                $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
 
                 return $query->paginate($perPageValue)->withQueryString();
             });
         } else {
             // No search/filter - execute query directly without cache
-            $perPage = $request->get('per_page', 10);
-            $perPageValue = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10;
+            $perPage = $request->get('per_page', 20);
+            $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
             $transactions = $query->paginate($perPageValue)->withQueryString();
         }
         
@@ -191,7 +191,7 @@ class TransactionBodyController extends Controller
             $dateFrom = $request->get('date_from', '');
             $dateTo = $request->get('date_to', '');
             $brandCode = $request->get('brand_code', '');
-            $perPage = $request->get('per_page', 10);
+            $perPage = $request->get('per_page', 20);
             $page = $request->get('page', 1);
             $sortColumn = $request->get('sort_column', 'date_decard');
             $sortDirection = $request->get('sort_direction', 'desc');
@@ -220,15 +220,15 @@ class TransactionBodyController extends Controller
                 }
 
                 // Pagination
-                $perPage = $request->get('per_page', 10);
-                $perPageValue = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10;
+                $perPage = $request->get('per_page', 20);
+                $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
 
                 return $query->paginate($perPageValue)->withQueryString();
             });
         } else {
             // No search/filter - execute query directly without cache
-            $perPage = $request->get('per_page', 10);
-            $perPageValue = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10;
+            $perPage = $request->get('per_page', 20);
+            $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
             $transactions = $query->paginate($perPageValue)->withQueryString();
         }
         

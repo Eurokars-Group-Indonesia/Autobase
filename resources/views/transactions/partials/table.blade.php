@@ -58,18 +58,39 @@
                                     <thead class="table-secondary" style="position: sticky; top: 0; z-index: 5;">
                                         <tr>
                                             <th class="text-center" style="width: 50px;">No</th>
-                                            <th class="text-center">Part No</th>
-                                            <th class="text-center">Description</th>
-                                            <th class="text-center">Date Decard</th>
-                                            <th class="text-center">Qty</th>
-                                            <th class="text-center">Cost Price</th>
-                                            <th class="text-center">Selling Price</th>
-                                            <th class="text-center">Discount %</th>
-                                            <th class="text-center">Extended Price</th>
-                                            <th class="text-center">Part/Labour</th>
+                                            <th class="text-center sortable-header-inline" data-column="part_no" style="cursor: pointer;">
+                                                Part No <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                                            </th>
+                                            <th class="text-center sortable-header-inline" data-column="description" style="cursor: pointer;">
+                                                Description <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                                            </th>
+                                            <th class="text-center sortable-header-inline" data-column="date_decard" style="cursor: pointer;">
+                                                Date Decard <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                                            </th>
+                                            <th class="text-center sortable-header-inline" data-column="qty" style="cursor: pointer;">
+                                                Qty <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                                            </th>
+                                            <th class="text-center sortable-header-inline" data-column="cost_price" style="cursor: pointer;">
+                                                Cost Price <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                                            </th>
+                                            <th class="text-center sortable-header-inline" data-column="selling_price" style="cursor: pointer;">
+                                                Selling Price <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                                            </th>
+                                            <th class="text-center sortable-header-inline" data-column="discount" style="cursor: pointer;">
+                                                Discount % <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                                            </th>
+                                            <th class="text-center sortable-header-inline" data-column="extended_price" style="cursor: pointer;">
+                                                Extended Price <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                                            </th>
+                                            <th class="text-center sortable-header-inline" data-column="unit" style="cursor: pointer;">
+                                                Unit <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                                            </th>
+                                            <th class="text-center sortable-header-inline" data-column="part_or_labour" style="cursor: pointer;">
+                                                Part/Labour <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                                            </th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody class="body-details-tbody" data-wipno="{{ $transaction->wip_no }}" data-invno="{{ $transaction->invoice_no }}" data-poscode="{{ $transaction->pos_code }}" data-magicid="{{ $transaction->magic_id }}">
                                         @php $totalExtPrice = 0; @endphp
                                         @foreach($transaction->bodies as $index => $body)
                                             @php $totalExtPrice += $body->extended_price; @endphp
@@ -89,6 +110,7 @@
                                                 <td class="text-end">{{ number_format($body->selling_price, 2) }}</td>
                                                 <td class="text-end">{{ number_format($body->discount, 2) }}%</td>
                                                 <td class="text-end">{{ number_format($body->extended_price, 2) }}</td>
+                                                <td>{{ $body->unit }}</td>
                                                 <td class="text-center">
                                                     <span class="badge bg-{{ $body->part_or_labour === 'P' ? 'primary' : 'success' }}">
                                                         {{ $body->part_or_labour === 'P' ? 'Part' : 'Labour' }}
@@ -99,9 +121,9 @@
                                     </tbody>
                                     <tfoot class="table-secondary" style="position: sticky; bottom: 0; z-index: 5;">
                                         <tr>
-                                            <th colspan="8" class="text-end">Total Extended Price :</th>
+                                            <th colspan="9" class="text-end">Total Extended Price :</th>
                                             <th class="text-end">{{ number_format($totalExtPrice, 2) }}</th>
-                                            <th></th>
+                                            <th colspan="2"></th>
                                         </tr>
                                     </tfoot>
                                 </table>

@@ -165,8 +165,7 @@
                         <div class="col-md-1">
                             <label class="form-label">Per Page</label>
                             <select class="form-select form-select-sm" name="per_page" id="per_page">
-                                <option value="10" {{ request('per_page', 10) == 10 ? 'selected' : '' }}>10</option>
-                                <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
+                                <option value="20" {{ request('per_page', 20) == 20 ? 'selected' : '' }}>20</option>
                                 <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
                                 <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
                             </select>
@@ -341,17 +340,17 @@
                         if (updateUrl) {
                             const url = new URL(window.location);
                             Object.keys(formData).forEach(key => {
-                                if (formData[key] && formData[key] !== '10' && key !== 'per_page') {
+                                if (formData[key] && formData[key] !== '20' && key !== 'per_page') {
                                     url.searchParams.set(key, formData[key]);
-                                } else if (key === 'per_page' && formData[key] !== '10') {
+                                } else if (key === 'per_page' && formData[key] !== '20') {
                                     url.searchParams.set(key, formData[key]);
                                 } else {
                                     url.searchParams.delete(key);
                                 }
                             });
-                            
+
                             // Only update URL if there are actual filters
-                            if (hasActiveFilters() || formData.per_page !== '10' || formData.page > 1) {
+                            if (hasActiveFilters() || formData.per_page !== '20' || formData.page > 1) {
                                 window.history.pushState({}, '', url);
                             } else {
                                 // Clear URL if no filters
@@ -446,7 +445,7 @@
             $('#date_from_display').val('');
             $('#date_to_display').val('');
             $('#brand_code').val('');
-            $('#per_page').val('10');
+            $('#per_page').val('20');
             dateFromPicker.clear();
             dateToPicker.clear();
             

@@ -23,7 +23,9 @@
                 <th style="min-width: 80px; cursor: pointer;" class="sortable-header" data-column="qty">
                     Qty <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
                 </th>
-                <th style="min-width: 80px;">Unit</th>
+                <th style="min-width: 80px; cursor: pointer;" class="sortable-header" data-column="unit">
+                    Unit <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                </th>
                 <th style="min-width: 120px; cursor: pointer;" class="sortable-header" data-column="cost_price">
                     Cost Price <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
                 </th>
