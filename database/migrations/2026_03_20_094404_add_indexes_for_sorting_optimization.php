@@ -48,18 +48,18 @@ return new class extends Migration
 
             // Indexes for phone_number columns (filter/search columns)
             // Optimized for LIKE '%phone%' queries - each column gets its own index
-            if (!$this->hasIndex('tx_header', 'idx_phone_number_1')) {
-                $table->index('phone_number_1', 'idx_phone_number_1');
-            }
-            if (!$this->hasIndex('tx_header', 'idx_phone_number_2')) {
-                $table->index('phone_number_2', 'idx_phone_number_2');
-            }
-            if (!$this->hasIndex('tx_header', 'idx_phone_number_3')) {
-                $table->index('phone_number_3', 'idx_phone_number_3');
-            }
-            if (!$this->hasIndex('tx_header', 'idx_phone_number_4')) {
-                $table->index('phone_number_4', 'idx_phone_number_4');
-            }
+            // if (!$this->hasIndex('tx_header', 'idx_phone_number_1')) {
+            //     $table->index('phone_number_1', 'idx_phone_number_1');
+            // }
+            // if (!$this->hasIndex('tx_header', 'idx_phone_number_2')) {
+            //     $table->index('phone_number_2', 'idx_phone_number_2');
+            // }
+            // if (!$this->hasIndex('tx_header', 'idx_phone_number_3')) {
+            //     $table->index('phone_number_3', 'idx_phone_number_3');
+            // }
+            // if (!$this->hasIndex('tx_header', 'idx_phone_number_4')) {
+            //     $table->index('phone_number_4', 'idx_phone_number_4');
+            // }
         });
 
         // Transaction Body (tx_body) indexes
@@ -157,18 +157,18 @@ return new class extends Migration
                 $table->dropIndex('idx_net_value');
             }
             // Drop phone number indexes
-            if ($this->hasIndex('tx_header', 'idx_phone_number_1')) {
-                $table->dropIndex('idx_phone_number_1');
-            }
-            if ($this->hasIndex('tx_header', 'idx_phone_number_2')) {
-                $table->dropIndex('idx_phone_number_2');
-            }
-            if ($this->hasIndex('tx_header', 'idx_phone_number_3')) {
-                $table->dropIndex('idx_phone_number_3');
-            }
-            if ($this->hasIndex('tx_header', 'idx_phone_number_4')) {
-                $table->dropIndex('idx_phone_number_4');
-            }
+            // if ($this->hasIndex('tx_header', 'idx_phone_number_1')) {
+            //     $table->dropIndex('idx_phone_number_1');
+            // }
+            // if ($this->hasIndex('tx_header', 'idx_phone_number_2')) {
+            //     $table->dropIndex('idx_phone_number_2');
+            // }
+            // if ($this->hasIndex('tx_header', 'idx_phone_number_3')) {
+            //     $table->dropIndex('idx_phone_number_3');
+            // }
+            // if ($this->hasIndex('tx_header', 'idx_phone_number_4')) {
+            //     $table->dropIndex('idx_phone_number_4');
+            // }
         });
 
         // Drop Transaction Body indexes

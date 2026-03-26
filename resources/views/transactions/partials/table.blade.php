@@ -16,6 +16,10 @@
                         <th style="min-width: 180px;">Chassis</th>
                         <th style="min-width: 120px;">Document Type</th>
                         <th style="min-width: 120px;">POS Code</th>
+                        <th style="min-width: 150px;">Phone 1</th>
+                        <th style="min-width: 150px;">Phone 2</th>
+                        <th style="min-width: 150px;">Phone 3</th>
+                        <th style="min-width: 150px;">Phone 4</th>
                         <th style="min-width: 130px;">Gross Value</th>
                         <th style="min-width: 130px;">Net Value</th>
                     </tr>
@@ -43,6 +47,10 @@
                             </span>
                         </td>
                         <td>{{ $transaction->brand->brand_code ?? '-' }} - {{ $transaction->brand->brand_name ?? '-' }}</td>
+                        <td>{{ $transaction->phone_number_1 ?? '-' }}</td>
+                        <td>{{ $transaction->phone_number_2 ?? '-' }}</td>
+                        <td>{{ $transaction->phone_number_3 ?? '-' }}</td>
+                        <td>{{ $transaction->phone_number_4 ?? '-' }}</td>
                         <td class="text-end">{{ $transaction->currency_code }} {{ number_format($transaction->gross_value, 2) }}</td>
                         <td class="text-end">{{ $transaction->currency_code }} {{ number_format($transaction->net_value, 2) }}</td>
                     </tr>
@@ -50,7 +58,7 @@
                     <!-- Body Details Row -->
                     @if(isset($transaction->bodies) && count($transaction->bodies) > 0)
                     <tr class="body-details-row">
-                        <td colspan="12" class="p-3">
+                        <td colspan="16" class="p-3">
                             <h6 class="mb-3 text-primary">
                             </h6>
                             <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">

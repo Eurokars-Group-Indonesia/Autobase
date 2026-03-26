@@ -97,30 +97,53 @@ class TransactionHeaderController extends Controller
                     $query->where(function($q) use ($search, $userBrandIds, $isDate) {
                         // Search in header fields - already filtered by brand in base query
                         $q->where(function($searchWhere) use ($search, $isDate) {
-                            // Check if search looks like a phone number (contains digits, +, -, spaces, or parentheses)
-                            $isPhoneNumber = preg_match('/^[0-9+\-\s()]+$/', $search);
+                            // Detect if search is specifically a phone number (has phone-specific characters)
+                            // Phone numbers typically have: +, -, spaces, parentheses, or are long (8+ digits)
+                            $hasPhoneChars = preg_match('/[+\-()]/', $search);
+                            $isLongNumber = preg_match('/^\d{8,}$/', $search); // 8+ digits = likely phone
+                            $isPhoneNumber = $hasPhoneChars || $isLongNumber;
+                            
+                            // Check if search is pure digits (could be invoice_no, wip_no, or phone)
+                            $isPureDigits = preg_match('/^\d+$/', $search) && !($isPhoneNumber);
                             
                             if ($isPhoneNumber) {
-                                // Use UNION ALL for phone number search - optimized for index usage
-                                // Each subquery uses its own index (idx_phone_number_1, idx_phone_number_2, etc.)
-                                $searchWhere->whereRaw('EXISTS (
-                                    SELECT 1 FROM (
-                                        SELECT header_id, phone_number_1 AS phone FROM tx_header WHERE phone_number_1 LIKE ?
-                                        UNION ALL
-                                        SELECT header_id, phone_number_2 AS phone FROM tx_header WHERE phone_number_2 LIKE ?
-                                        UNION ALL
-                                        SELECT header_id, phone_number_3 AS phone FROM tx_header WHERE phone_number_3 LIKE ?
-                                        UNION ALL
-                                        SELECT header_id, phone_number_4 AS phone FROM tx_header WHERE phone_number_4 LIKE ?
-                                    ) AS phone_search
-                                    WHERE phone_search.header_id = tx_header.header_id
-                                    LIMIT 1
-                                )', ['%' . $search . '%', '%' . $search . '%', '%' . $search . '%', '%' . $search . '%']);
+                                // Use FULLTEXT search with ngram parser for phone numbers
+                                // This supports partial matching and is much faster than LIKE %search%
+                                // The ngram index will handle wildcard searches efficiently
+                                $searchWhere->whereRaw(
+                                    'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
+                                    [$search]
+                                );
+                            } elseif ($isPureDigits) {
+                                // Pure digits (short numbers) - search in invoice_no, wip_no, chassis, AND phone numbers
+                                // This handles cases like "3200707", "22657" which could be invoice/wip numbers
+                                $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
+                                            ->orWhere('tx_header.wip_no', 'like', $search . '%')
+                                            ->orWhere('tx_header.chassis', 'like', $search . '%')
+                                            // Also search in phone numbers (could be partial phone)
+                                            ->orWhereRaw(
+                                                'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
+                                                [$search]
+                                            );
                             } else {
-                                // Use FULLTEXT search for customer_name and registration_no (without wildcard)
-                                // FULLTEXT indexes (idx_customer_name_fulltext, idx_registration_no_fulltext) will be used
-                                $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$search])
-                                            ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$search])
+                                // Strip common titles/prefixes from search to improve matching
+                                // Titles like Mr, Mrs, Ms, Dr, etc. will be removed
+                                $searchClean = preg_replace('/^(mr|mrs|ms|miss|dr|prof|sir|madam|lady|lord)\.?\s+/i', '', trim($search));
+                                
+                                // For ngram FULLTEXT, use BOOLEAN MODE with wildcards for multi-word matching
+                                // Split search into words and add wildcards: "dimple bernando" -> "*dimple* *bernando*"
+                                // This ensures ALL words must be present (AND logic) with partial matching
+                                $words = preg_split('/\s+/', $searchClean);
+                                $fulltextSearch = implode(' ', array_map(function($word) {
+                                    return '*' . $word . '*';
+                                }, $words));
+                                
+                                // Use FULLTEXT search with ngram parser for customer_name and registration_no
+                                // ngram indexes (idx_customer_name_ngram, idx_registration_no_ngram) will be used
+                                // BOOLEAN MODE with wildcards: requires ALL words to match (AND logic)
+                                // Example: "*dimple* *bernando*" will match "Mr Dimple Bernando Torrez"
+                                $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
+                                            ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
                                             // Use prefix LIKE for chassis, invoice_no, wip_no (B-TREE indexes can be used)
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.invoice_no', 'like', $search . '%')
@@ -788,19 +811,53 @@ class TransactionHeaderController extends Controller
                     $query->where(function($q) use ($search, $userBrandIds, $isDate) {
                         // Search in header fields - already filtered by brand in base query
                         $q->where(function($searchWhere) use ($search, $isDate) {
-                            // Check if search looks like a phone number (contains digits, +, -, spaces, or parentheses)
-                            $isPhoneNumber = preg_match('/^[0-9+\-\s()]+$/', $search);
+                            // Detect if search is specifically a phone number (has phone-specific characters)
+                            // Phone numbers typically have: +, -, spaces, parentheses, or are long (8+ digits)
+                            $hasPhoneChars = preg_match('/[+\-()]/', $search);
+                            $isLongNumber = preg_match('/^\d{8,}$/', $search); // 8+ digits = likely phone
+                            $isPhoneNumber = $hasPhoneChars || $isLongNumber;
+                            
+                            // Check if search is pure digits (could be invoice_no, wip_no, or phone)
+                            $isPureDigits = preg_match('/^\d+$/', $search) && !($isPhoneNumber);
                             
                             if ($isPhoneNumber) {
+                                // Use FULLTEXT search with ngram parser for phone numbers
+                                // This supports partial matching and is much faster than LIKE %search%
+                                // The ngram index will handle wildcard searches efficiently
                                 $searchWhere->whereRaw(
                                     'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
                                     [$search]
                                 );
+                            } elseif ($isPureDigits) {
+                                // Pure digits (short numbers) - search in invoice_no, wip_no, chassis, AND phone numbers
+                                // This handles cases like "3200707", "22657" which could be invoice/wip numbers
+                                $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
+                                            ->orWhere('tx_header.wip_no', 'like', $search . '%')
+                                            ->orWhere('tx_header.chassis', 'like', $search . '%')
+                                            // Also search in phone numbers (could be partial phone)
+                                            ->orWhereRaw(
+                                                'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
+                                                [$search]
+                                            );
                             } else {
-                                // Use FULLTEXT search for customer_name and registration_no (without wildcard)
-                                // FULLTEXT indexes (idx_customer_name_fulltext, idx_registration_no_fulltext) will be used
-                                $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$search])
-                                            ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$search])
+                                // Strip common titles/prefixes from search to improve matching
+                                // Titles like Mr, Mrs, Ms, Dr, etc. will be removed
+                                $searchClean = preg_replace('/^(mr|mrs|ms|miss|dr|prof|sir|madam|lady|lord)\.?\s+/i', '', trim($search));
+                                
+                                // For ngram FULLTEXT, use BOOLEAN MODE with wildcards for multi-word matching
+                                // Split search into words and add wildcards: "dimple bernando" -> "*dimple* *bernando*"
+                                // This ensures ALL words must be present (AND logic) with partial matching
+                                $words = preg_split('/\s+/', $searchClean);
+                                $fulltextSearch = implode(' ', array_map(function($word) {
+                                    return '*' . $word . '*';
+                                }, $words));
+                                
+                                // Use FULLTEXT search with ngram parser for customer_name and registration_no
+                                // ngram indexes (idx_customer_name_ngram, idx_registration_no_ngram) will be used
+                                // BOOLEAN MODE with wildcards: requires ALL words to match (AND logic)
+                                // Example: "*dimple* *bernando*" will match "Mr Dimple Bernando Torrez"
+                                $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
+                                            ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
                                             // Use prefix LIKE for chassis, invoice_no, wip_no (B-TREE indexes can be used)
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.invoice_no', 'like', $search . '%')
