@@ -149,7 +149,7 @@ class TransactionHeaderController extends Controller
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.invoice_no', 'like', $search . '%')
                                             ->orWhere('tx_header.wip_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.account_name', 'like', $search . '%');
+                                            ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
                             }
 
                             // Only add date search if format matches
@@ -426,7 +426,7 @@ class TransactionHeaderController extends Controller
                     $searchWhere->orWhere('tx_header.chassis', 'like', $search . '%')
                                 ->orWhere('tx_header.invoice_no', 'like', $search . '%')
                                 ->orWhere('tx_header.wip_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.account_name', 'like', $search . '%');
+                                            ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
 
                     // Only add date search if format matches
                     if ($isDate) {
@@ -867,7 +867,7 @@ class TransactionHeaderController extends Controller
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.invoice_no', 'like', $search . '%')
                                             ->orWhere('tx_header.wip_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.account_name', 'like', $search . '%');
+                                            ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
                             }
 
                             // Only add date search if format matches
