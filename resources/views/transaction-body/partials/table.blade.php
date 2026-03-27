@@ -49,6 +49,7 @@
                 <th style="min-width: 100px; cursor: pointer;" class="sortable-header" data-column="invoice_status">
                     Status <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
                 </th>
+                <th style="min-width: 150px;">Operator Name</th>
             </tr>
         </thead>
         <tbody>
@@ -78,10 +79,11 @@
                             {{ $transaction->getInvoiceStatusLabel() }}
                         </span>
                     </td>
+                    <td>{{ $transaction->operator_name ?? '-' }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="{{ $canViewCostPrice ? 14 : 13 }}" class="text-center">No transaction body found</td>
+                    <td colspan="{{ $canViewCostPrice ? 15 : 14 }}" class="text-center">No transaction body found</td>
                 </tr>
             @endforelse
         </tbody>

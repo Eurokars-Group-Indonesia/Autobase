@@ -24,6 +24,7 @@
                         <th style="min-width: 150px;">Phone 2</th>
                         <th style="min-width: 150px;">Phone 3</th>
                         <th style="min-width: 150px;">Phone 4</th>
+                        <th style="min-width: 150px;">Operator Name</th>
                         <th style="min-width: 130px;">Gross Value</th>
                         <th style="min-width: 130px;">Net Value</th>
                     </tr>
@@ -56,6 +57,7 @@
                         <td>{{ $transaction->phone_number_2 ?? '-' }}</td>
                         <td>{{ $transaction->phone_number_3 ?? '-' }}</td>
                         <td>{{ $transaction->phone_number_4 ?? '-' }}</td>
+                        <td>{{ $transaction->operator_name ?? '-' }}</td>
                         <td class="text-end">{{ $transaction->currency_code }} {{ number_format($transaction->gross_value, 2) }}</td>
                         <td class="text-end">{{ $transaction->currency_code }} {{ number_format($transaction->net_value, 2) }}</td>
                     </tr>
@@ -63,7 +65,7 @@
                     <!-- Body Details Row -->
                     @if(isset($transaction->bodies) && count($transaction->bodies) > 0)
                     <tr class="body-details-row">
-                        <td colspan="{{ $canViewCostPrice ? 17 : 16 }}" class="p-3">
+                        <td colspan="{{ $canViewCostPrice ? 18 : 17 }}" class="p-3">
                             <h6 class="mb-3 text-primary">
                             </h6>
                             <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
@@ -194,6 +196,7 @@
                 <th style="min-width: 150px;">Phone 2</th>
                 <th style="min-width: 150px;">Phone 3</th>
                 <th style="min-width: 150px;">Phone 4</th>
+                <th style="min-width: 150px;">Operator Name</th>
                 <th style="min-width: 130px; cursor: pointer;" class="sortable-header" data-column="gross_value">
                     Gross Value <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
                 </th>
@@ -233,12 +236,13 @@
                     <td>{{ $transaction->phone_number_2 ?? '-' }}</td>
                     <td>{{ $transaction->phone_number_3 ?? '-' }}</td>
                     <td>{{ $transaction->phone_number_4 ?? '-' }}</td>
+                    <td>{{ $transaction->operator_name ?? '-' }}</td>
                     <td class="text-end">{{ $transaction->currency_code }} {{ number_format($transaction->gross_value, 2) }}</td>
                     <td class="text-end">{{ $transaction->currency_code }} {{ number_format($transaction->net_value, 2) }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="17" class="text-center">No transactions found</td>
+                    <td colspan="18" class="text-center">No transactions found</td>
                 </tr>
             @endforelse
         </tbody>

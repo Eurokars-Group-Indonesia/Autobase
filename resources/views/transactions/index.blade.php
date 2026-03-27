@@ -370,6 +370,7 @@
                                     <th class="text-center">VAT</th>
                                     <th class="text-center">Analysis Code</th>
                                     <th class="text-center">Parts/Labour</th>
+                                    <th class="text-center">Operator Name</th>
                                 </tr>
                             </thead>
                             <tbody id="detailsTableBody">
@@ -377,7 +378,7 @@
                             </tbody>
                             <tfoot class="table-light" style="position: sticky; bottom: 0; z-index: 1;">
                                 <tr>
-                                    <th colspan="{{ $canViewCostPrice ? 9 : 8 }}" class="text-end">Total Extended Price :</th>
+                                    <th colspan="{{ $canViewCostPrice ? 10 : 9 }}" class="text-end">Total Extended Price :</th>
                                     <th class="text-end" id="totalExtPrice">0.00</th>
                                     <th colspan="4"></th>
                                 </tr>
@@ -849,6 +850,7 @@
                                             ${item.part_or_labour === 'P' ? 'Part' : 'Labour'}
                                         </span>
                                     </td>
+                                    <td>${item.operator_name || '-'}</td>
                                 </tr>
                             `;
                         });
