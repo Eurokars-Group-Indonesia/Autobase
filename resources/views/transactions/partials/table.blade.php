@@ -1,4 +1,7 @@
 <div class="table-responsive" style="max-height: 65vh; overflow-y: auto;">
+@php
+    $canViewCostPrice = auth()->user()->hasPermission('cost.price.view');
+@endphp
 @if($hasFilter)
     {{-- When filtering, show header labels first --}}
     @forelse($transactions as $transaction)
@@ -60,7 +63,7 @@
                     <!-- Body Details Row -->
                     @if(isset($transaction->bodies) && count($transaction->bodies) > 0)
                     <tr class="body-details-row">
-                        <td colspan="17" class="p-3">
+                        <td colspan="{{ $canViewCostPrice ? 17 : 16 }}" class="p-3">
                             <h6 class="mb-3 text-primary">
                             </h6>
                             <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
@@ -80,9 +83,11 @@
                                             <th class="text-center sortable-header-inline" data-column="qty" style="cursor: pointer;">
                                                 Qty <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
                                             </th>
+                                            @if($canViewCostPrice)
                                             <th class="text-center sortable-header-inline" data-column="cost_price" style="cursor: pointer;">
                                                 Cost Price <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
                                             </th>
+                                            @endif
                                             <th class="text-center sortable-header-inline" data-column="selling_price" style="cursor: pointer;">
                                                 Selling Price <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
                                             </th>
@@ -116,7 +121,9 @@
                                                     @endif
                                                 </td>
                                                 <td class="text-end">{{ number_format($body->qty, 2) }}</td>
+                                                @if($canViewCostPrice)
                                                 <td class="text-end">{{ number_format($body->cost_price ?? 0, 2) }}</td>
+                                                @endif
                                                 <td class="text-end">{{ number_format($body->selling_price, 2) }}</td>
                                                 <td class="text-end">{{ number_format($body->discount, 2) }}%</td>
                                                 <td class="text-end">{{ number_format($body->extended_price, 2) }}</td>
@@ -131,7 +138,7 @@
                                     </tbody>
                                     <tfoot class="table-secondary" style="position: sticky; bottom: 0; z-index: 5;">
                                         <tr>
-                                            <th colspan="9" class="text-end">Total Extended Price :</th>
+                                            <th colspan="{{ $canViewCostPrice ? 9 : 8 }}" class="text-end">Total Extended Price :</th>
                                             <th class="text-end">{{ number_format($totalExtPrice, 2) }}</th>
                                             <th colspan="2"></th>
                                         </tr>

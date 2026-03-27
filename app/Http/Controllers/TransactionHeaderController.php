@@ -257,7 +257,8 @@ class TransactionHeaderController extends Controller
         }
         
         // Return view without transactions data - will be loaded via AJAX
-        return view('transactions.index', compact('brands'));
+        $canViewCostPrice = auth()->user()->hasPermission('cost.price.view');
+        return view('transactions.index', compact('brands', 'canViewCostPrice'));
     }
 
     public function showImport()
@@ -1038,9 +1039,21 @@ class TransactionHeaderController extends Controller
             ->orderBy($orderByColumn, $sortDirection)
             ->get();
 
+        // Check if user has permission to view cost_price
+        $canViewCostPrice = auth()->user()->hasPermission('cost.price.view');
+        
+        // If user doesn't have permission, remove cost_price from response
+        if (!$canViewCostPrice) {
+            $bodies = $bodies->map(function($body) {
+                $body->cost_price = null;
+                return $body;
+            });
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $bodies
+            'data' => $bodies,
+            'canViewCostPrice' => $canViewCostPrice
         ]);
     }
 

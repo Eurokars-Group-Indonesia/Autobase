@@ -360,7 +360,9 @@
                                     <th class="text-center">Description</th>
                                     <th class="text-center">Date Decard</th>
                                     <th class="text-center">Qty</th>
+                                    @if($canViewCostPrice)
                                     <th class="text-center">Cost Price</th>
+                                    @endif
                                     <th class="text-center">Selling Price</th>
                                     <th class="text-center">Discount %</th>
                                     <th class="text-center">Extended Price</th>
@@ -375,7 +377,7 @@
                             </tbody>
                             <tfoot class="table-light" style="position: sticky; bottom: 0; z-index: 1;">
                                 <tr>
-                                    <th colspan="9" class="text-end">Total Extended Price :</th>
+                                    <th colspan="{{ $canViewCostPrice ? 9 : 8 }}" class="text-end">Total Extended Price :</th>
                                     <th class="text-end" id="totalExtPrice">0.00</th>
                                     <th colspan="4"></th>
                                 </tr>
@@ -747,18 +749,23 @@
                 'description': 2,
                 'date_decard': 3,
                 'qty': 4,
-                'cost_price': 5,
-                'selling_price': 6,
-                'discount': 7,
-                'extended_price': 8,
-                'unit': 9,
-                'part_or_labour': 10
+                'cost_price': {{ $canViewCostPrice ? '5' : 'null' }},
+                'selling_price': {{ $canViewCostPrice ? '6' : '5' }},
+                'discount': {{ $canViewCostPrice ? '7' : '6' }},
+                'extended_price': {{ $canViewCostPrice ? '8' : '7' }},
+                'unit': {{ $canViewCostPrice ? '9' : '8' }},
+                'part_or_labour': {{ $canViewCostPrice ? '10' : '9' }}
             };
             return columnMap[column] || 1;
         }
         
         function parseValue(column, text) {
-            if (['qty', 'cost_price', 'selling_price', 'discount', 'extended_price'].includes(column)) {
+            const numericColumns = ['qty', 'selling_price', 'discount', 'extended_price'];
+            @if($canViewCostPrice)
+            numericColumns.push('cost_price');
+            @endif
+            
+            if (numericColumns.includes(column)) {
                 // Remove commas and parse as float
                 return parseFloat(text.replace(/,/g, '')) || 0;
             }
@@ -811,11 +818,17 @@
                     if (response.success && response.data.length > 0) {
                         let totalExtPrice = 0;
                         let html = '';
+                        const canViewCostPrice = response.canViewCostPrice;
 
                         response.data.forEach(function(item, index) {
                             totalExtPrice += parseFloat(item.extended_price || 0);
 
                             const dateDecard = item.date_decard ? new Date(item.date_decard).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : '-';
+
+                            let costPriceHtml = '';
+                            if (canViewCostPrice) {
+                                costPriceHtml = `<td class="text-end">${parseFloat(item.cost_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>`;
+                            }
 
                             html += `
                                 <tr>
@@ -824,7 +837,7 @@
                                     <td>${item.description || '-'}</td>
                                     <td class="text-center">${dateDecard}</td>
                                     <td class="text-end">${parseFloat(item.qty || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                    <td class="text-end">${parseFloat(item.cost_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    ${costPriceHtml}
                                     <td class="text-end">${parseFloat(item.selling_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                     <td class="text-end">${parseFloat(item.discount || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}%</td>
                                     <td class="text-end">${parseFloat(item.extended_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
