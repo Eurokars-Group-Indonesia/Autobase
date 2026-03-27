@@ -625,8 +625,8 @@
             // Hide export button
             $('#exportBtn').hide();
 
-            // Perform search with cleared filters to show default 10 data
-            performSearch(1, false, false);
+            // Perform search with cleared filters and update URL to remove all parameters
+            performSearch(1, true, false);
         });
 
         // Handle per_page change

@@ -149,6 +149,7 @@ class TransactionHeaderController extends Controller
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.invoice_no', 'like', $search . '%')
                                             ->orWhere('tx_header.wip_no', 'like', $search . '%')
+                                            ->orWhere('tx_header.account_code', 'like', $search . '%')
                                             ->orWhere(function($accountWhere) use ($fulltextSearch) {
                                                 $accountWhere->whereNotNull('tx_header.account_name')
                                                             ->whereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
@@ -884,10 +885,11 @@ class TransactionHeaderController extends Controller
                                 $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
                                             ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
                                             ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
-                                            // Use prefix LIKE for chassis, invoice_no, wip_no (B-TREE indexes can be used)
+                                            // Use prefix LIKE for chassis, invoice_no, wip_no, account_code (B-TREE indexes can be used)
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.invoice_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.wip_no', 'like', $search . '%');
+                                            ->orWhere('tx_header.wip_no', 'like', $search . '%')
+                                            ->orWhere('tx_header.account_code', 'like', $search . '%');
                                             
                             }
 
