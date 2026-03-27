@@ -10,7 +10,8 @@
                         <th style="min-width: 120px;">Invoice No</th>
                         <th style="min-width: 120px;">WIP No</th>
                         <th style="min-width: 120px;">Invoice Date</th>
-                        <th style="min-width: 150px;">Account</th>
+                        <th style="min-width: 150px;">Account Code</th>
+                        <th style="min-width: 200px;">Account Name</th>
                         <th style="min-width: 200px;">Customer Name</th>
                         <th style="min-width: 150px;">Registration No</th>
                         <th style="min-width: 180px;">Chassis</th>
@@ -38,6 +39,7 @@
                         <td>{{ $transaction->wip_no }}</td>
                         <td>{{ $transaction->invoice_date ? $transaction->invoice_date->format('d M Y') : '-' }}</td>
                         <td>{{ $transaction->account_code ?? '-' }}</td>
+                        <td>{{ $transaction->account_name ?? '-' }}</td>
                         <td>{{ $transaction->customer_name ?? '-' }}</td>
                         <td>{{ $transaction->registration_no ?? '-' }}</td>
                         <td>{{ $transaction->chassis ?? '-' }}</td>
@@ -58,7 +60,7 @@
                     <!-- Body Details Row -->
                     @if(isset($transaction->bodies) && count($transaction->bodies) > 0)
                     <tr class="body-details-row">
-                        <td colspan="16" class="p-3">
+                        <td colspan="17" class="p-3">
                             <h6 class="mb-3 text-primary">
                             </h6>
                             <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">

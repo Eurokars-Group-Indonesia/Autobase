@@ -46,7 +46,7 @@ class TransactionHeaderController extends Controller
         
         // Validate sort column to prevent SQL injection
         $allowedSortColumns = [
-            'invoice_no', 'wip_no', 'invoice_date', 'account_code', 
+            'invoice_no', 'wip_no', 'invoice_date', 'account_code', 'account_name', 
             'customer_name', 'registration_no', 'chassis', 'document_type',
             'pos_code', 'gross_value', 'net_value'
         ];
@@ -148,7 +148,8 @@ class TransactionHeaderController extends Controller
                                             // Use prefix LIKE for chassis, invoice_no, wip_no (B-TREE indexes can be used)
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.invoice_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.wip_no', 'like', $search . '%');
+                                            ->orWhere('tx_header.wip_no', 'like', $search . '%')
+                                            ->orWhere('tx_header.account_name', 'like', $search . '%');
                             }
 
                             // Only add date search if format matches
@@ -424,7 +425,8 @@ class TransactionHeaderController extends Controller
                     // Add other fields (chassis, invoice_no, wip_no) - use prefix LIKE (B-TREE indexes can be used)
                     $searchWhere->orWhere('tx_header.chassis', 'like', $search . '%')
                                 ->orWhere('tx_header.invoice_no', 'like', $search . '%')
-                                ->orWhere('tx_header.wip_no', 'like', $search . '%');
+                                ->orWhere('tx_header.wip_no', 'like', $search . '%')
+                                            ->orWhere('tx_header.account_name', 'like', $search . '%');
 
                     // Only add date search if format matches
                     if ($isDate) {
@@ -652,6 +654,7 @@ class TransactionHeaderController extends Controller
             'invoice_no' => 'Invoice Number (InvNo)',
             'wip_no' => 'WIP Number (WIPNO)',
             'account_code' => 'Account Code',
+            'account_name' => 'Account Name',
             'customer_name' => 'Customer Name (CustName)',
             'address_1' => 'Address 1 (Add1)',
             'address_2' => 'Address 2 (Add2)',
@@ -761,7 +764,7 @@ class TransactionHeaderController extends Controller
         
         // Validate sort column to prevent SQL injection
         $allowedSortColumns = [
-            'invoice_no', 'wip_no', 'invoice_date', 'account_code', 
+            'invoice_no', 'wip_no', 'invoice_date', 'account_code', 'account_name', 
             'customer_name', 'registration_no', 'chassis', 'document_type',
             'pos_code', 'gross_value', 'net_value'
         ];
@@ -863,7 +866,8 @@ class TransactionHeaderController extends Controller
                                             // Use prefix LIKE for chassis, invoice_no, wip_no (B-TREE indexes can be used)
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.invoice_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.wip_no', 'like', $search . '%');
+                                            ->orWhere('tx_header.wip_no', 'like', $search . '%')
+                                            ->orWhere('tx_header.account_name', 'like', $search . '%');
                             }
 
                             // Only add date search if format matches
