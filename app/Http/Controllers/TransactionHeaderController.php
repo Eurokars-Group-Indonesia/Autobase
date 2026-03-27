@@ -120,6 +120,7 @@ class TransactionHeaderController extends Controller
                                 $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
                                             ->orWhere('tx_header.wip_no', 'like', $search . '%')
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
+                                            ->orWhere('tx_header.account_code', 'like', $search . '%')
                                             // Also search in phone numbers (could be partial phone)
                                             ->orWhereRaw(
                                                 'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
@@ -834,6 +835,7 @@ class TransactionHeaderController extends Controller
                                 $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
                                             ->orWhere('tx_header.wip_no', 'like', $search . '%')
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
+                                            ->orWhere('tx_header.account_code', 'like', $search . '%')
                                             // Also search in phone numbers (could be partial phone)
                                             ->orWhereRaw(
                                                 'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
