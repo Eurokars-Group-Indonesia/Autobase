@@ -870,14 +870,12 @@ class TransactionHeaderController extends Controller
                                 // Example: "*dimple* *bernando*" will match "Mr Dimple Bernando Torrez"
                                 $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
                                             ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
+                                            ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
                                             // Use prefix LIKE for chassis, invoice_no, wip_no (B-TREE indexes can be used)
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.invoice_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.wip_no', 'like', $search . '%')
-                                            ->orWhere(function($accountWhere) use ($fulltextSearch) {
-                                                $accountWhere->whereNotNull('tx_header.account_name')
-                                                            ->whereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
-                                            });
+                                            ->orWhere('tx_header.wip_no', 'like', $search . '%');
+                                            
                             }
 
                             // Only add date search if format matches

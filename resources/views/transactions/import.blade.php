@@ -314,6 +314,8 @@
                     <ul class="small text-muted">
                         <li><strong>WIPNO</strong> - Work In Progress Number (Required, integer only)</li>
                         <li><strong>Account</strong> - Account Code (Optional, max 20 chars)</li>
+                        <!-- <li><strong>AccountName</strong> - Account Name (Optional, max 150 chars)</li> -->
+                        <li><strong>SLName</strong> - SL Name (Optional, max 150 chars)</li>
                         <li><strong>CustName</strong> - Customer Name (Optional, max 150 chars)</li>
                         <li><strong>Add1-Add5</strong> - Address Lines (Optional, text)</li>
                         <li><strong>Dept</strong> - Department (Optional, max 50 chars)</li>

@@ -178,12 +178,22 @@ class TransactionHeaderImport implements
             }
 
             // Validate account_name (max 150 chars)
-            if (!empty($row['accountname']) && strlen($row['accountname']) > 150) {
+            if (!empty($row['slname']) && strlen($row['slname']) > 150) {
                 $rowErrors[] = [
                     'row' => $this->currentRow,
-                    'field' => 'AccountName',
-                    'value' => substr($row['accountname'], 0, 50) . '...',
+                    'field' => 'slname',
+                    'value' => substr($row['slname'], 0, 50) . '...',
                     'error' => 'Account Name must be 150 characters or less'
+                ];
+            }
+
+            // Validate SLName (max 150 chars) - Optional
+            if (!empty($row['slname']) && strlen($row['slname']) > 150) {
+                $rowErrors[] = [
+                    'row' => $this->currentRow,
+                    'field' => 'SLName',
+                    'value' => substr($row['slname'], 0, 50) . '...',
+                    'error' => 'SL Name must be 150 characters or less'
                 ];
             }
 
@@ -367,7 +377,8 @@ class TransactionHeaderImport implements
                 'invoice_no' => $invoiceNo,
                 'pos_code' => $row['posco'],
                 'account_code' => $row['account'] ?? null,
-                'account_name' => $row['accountname'] ?? null,
+                'account_name' => $row['slname'] ?? null,
+                'sl_name' => $row['slname'] ?? null,
                 'customer_name' => $row['custname'] ?? null,
                 'address_1' => $row['add1'] ?? null,
                 'address_2' => $row['add2'] ?? null,
