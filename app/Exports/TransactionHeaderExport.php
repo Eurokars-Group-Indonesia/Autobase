@@ -17,6 +17,7 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
     protected $dateTo;
     protected $userBrandCodes;
     protected $brandCode;
+    protected $canViewCostPrice;
 
     public function __construct($search = null, $dateFrom = null, $dateTo = null, $userBrandCodes = [], $brandCode = null)
     {
@@ -25,6 +26,7 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
         $this->dateTo = $dateTo;
         $this->userBrandCodes = $userBrandCodes;
         $this->brandCode = $brandCode;
+        $this->canViewCostPrice = auth()->user()->hasPermission('cost.price.view');
     }
 
     public function collection()
@@ -163,14 +165,20 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
             $rows->push(['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
             
             // Add body table headers (no title, just headers)
-            $rows->push([
+            $bodyHeaders = [
                 'No',
                 'Part No',
                 'HMagic2',
                 'Description',
                 'Date Decard',
                 'Qty',
-                'Cost Price',
+            ];
+            
+            if ($this->canViewCostPrice) {
+                $bodyHeaders[] = 'Cost Price';
+            }
+            
+            $bodyHeaders = array_merge($bodyHeaders, [
                 'Selling Price',
                 'Discount %',
                 'Extended Price',
@@ -178,24 +186,34 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
                 '', '', '', '', '', '', ''
             ]);
             
+            $rows->push($bodyHeaders);
+            
             // Add body rows
             if ($bodies->count() > 0) {
                 $no = 1;
                 foreach ($bodies as $body) {
-                    $rows->push([
+                    $bodyRow = [
                         $no++,
                         $body->part_no,
                         $body->magic_2 ?? '',
                         $body->description ?? '',
                         $body->date_decard ? \Carbon\Carbon::parse($body->date_decard)->format('d-m-Y') : '',
                         $body->qty,
-                        $body->cost_price ?? 0,
+                    ];
+                    
+                    if ($this->canViewCostPrice) {
+                        $bodyRow[] = $body->cost_price ?? 0;
+                    }
+                    
+                    $bodyRow = array_merge($bodyRow, [
                         $body->selling_price,
                         $body->discount,
                         $body->extended_price,
                         $body->part_or_labour === 'P' ? 'Part' : 'Labour',
                         '', '', '', '', '', '', ''
                     ]);
+                    
+                    $rows->push($bodyRow);
                 }
             } else {
                 $rows->push([

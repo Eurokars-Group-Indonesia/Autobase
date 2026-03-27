@@ -981,10 +981,11 @@ class TransactionHeaderController extends Controller
         }
         
         // Return JSON response for AJAX
+        $canViewCostPrice = auth()->user()->hasPermission('cost.price.view');
         return response()->json([
             'success' => true,
             'hasFilter' => $hasFilter,
-            'html' => view('transactions.partials.table', compact('transactions', 'hasFilter'))->render(),
+            'html' => view('transactions.partials.table', compact('transactions', 'hasFilter', 'canViewCostPrice'))->render(),
             'pagination' => view('transactions.partials.pagination', compact('transactions'))->render()
         ]);
     }
