@@ -149,7 +149,10 @@ class TransactionHeaderController extends Controller
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.invoice_no', 'like', $search . '%')
                                             ->orWhere('tx_header.wip_no', 'like', $search . '%')
-                                            ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+                                            ->orWhere(function($accountWhere) use ($fulltextSearch) {
+                                                $accountWhere->whereNotNull('tx_header.account_name')
+                                                            ->whereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+                                            });
                             }
 
                             // Only add date search if format matches
@@ -426,7 +429,10 @@ class TransactionHeaderController extends Controller
                     $searchWhere->orWhere('tx_header.chassis', 'like', $search . '%')
                                 ->orWhere('tx_header.invoice_no', 'like', $search . '%')
                                 ->orWhere('tx_header.wip_no', 'like', $search . '%')
-                                            ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+                                            ->orWhere(function($accountWhere) use ($fulltextSearch) {
+                                                $accountWhere->whereNotNull('tx_header.account_name')
+                                                            ->whereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+                                            });
 
                     // Only add date search if format matches
                     if ($isDate) {
@@ -692,6 +698,7 @@ class TransactionHeaderController extends Controller
         $headers = [
             'WIPNO',
             'Account',
+            'SLName',
             'CustName',
             'Add1',
             'Add2',
@@ -867,7 +874,10 @@ class TransactionHeaderController extends Controller
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.invoice_no', 'like', $search . '%')
                                             ->orWhere('tx_header.wip_no', 'like', $search . '%')
-                                            ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+                                            ->orWhere(function($accountWhere) use ($fulltextSearch) {
+                                                $accountWhere->whereNotNull('tx_header.account_name')
+                                                            ->whereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+                                            });
                             }
 
                             // Only add date search if format matches
@@ -1069,3 +1079,4 @@ class TransactionHeaderController extends Controller
         );
     }
 }
+
