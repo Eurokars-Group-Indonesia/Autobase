@@ -261,29 +261,18 @@
             </div>
             <div class="card-body">
                 <div class="row mb-3">
-                    <div class="col-md-12">
+                    <div class="col-md-6 ms-auto">
                         <form action="{{ route('users.index') }}" method="GET">
-                            <div class="row g-2">
-                                <div class="col-md-4">
-                                    <label class="form-label">Search</label>
-                                    <input type="text" class="form-control" name="search" placeholder="Name, email, full name..." value="{{ request('search') }}">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Phone Number</label>
-                                    <input type="text" class="form-control" name="phone" placeholder="Filter by phone..." value="{{ request('phone') }}">
-                                </div>
-                                <div class="col-md-2 d-flex align-items-end">
-                                    <button class="btn btn-primary w-100" type="submit">
-                                        <i class="bi bi-search"></i> Search
-                                    </button>
-                                </div>
-                                <div class="col-md-2 d-flex align-items-end">
-                                    @if(request('search') || request('phone'))
-                                        <a href="{{ route('users.index') }}" class="btn btn-secondary w-100">
-                                            <i class="bi bi-x-circle"></i> Clear
-                                        </a>
-                                    @endif
-                                </div>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="search" placeholder="Search by name, email, full name, phone..." value="{{ request('search') }}">
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="bi bi-search"></i> Search
+                                </button>
+                                @if(request('search'))
+                                    <a href="{{ route('users.index') }}" class="btn btn-secondary">
+                                        <i class="bi bi-x-circle"></i> Clear
+                                    </a>
+                                @endif
                             </div>
                         </form>
                     </div>

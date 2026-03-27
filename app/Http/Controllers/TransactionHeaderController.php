@@ -299,7 +299,6 @@ class TransactionHeaderController extends Controller
 
             // Get custom errors from import class
             $customErrors = $import->getErrors();
-            $successCount = $import->getSuccessCount();
             
             // Get validation failures
             $failures = $import->failures();
@@ -327,36 +326,49 @@ class TransactionHeaderController extends Controller
                 ];
             }
             
+            // If there are validation errors, stop and show them
+            if (count($allErrors) > 0) {
+                // Clear import cache
+                $import->clearCache();
+                
+                // Calculate execution time
+                $endTime = microtime(true);
+                $executionTime = ($endTime - $startTime) * 1000;
+                
+                // Log import history asynchronously (0 success, all errors)
+                LogImportHistory::dispatch(
+                    auth()->id(),
+                    'H',
+                    count($allErrors),
+                    0,
+                    count($allErrors),
+                    $executionTime
+                );
+                
+                return redirect()->route('transactions.header.import')
+                    ->with('import_errors', $allErrors)
+                    ->with('success_count', 0)
+                    ->with('error', "Import failed! " . count($allErrors) . " validation error(s) found. Please fix the data and try again.");
+            }
+
+            // No validation errors, proceed with batch processing
+            $import->processBatch();
+            $successCount = $import->getSuccessCount();
+            
             // Calculate execution time
             $endTime = microtime(true);
             $executionTime = ($endTime - $startTime) * 1000;
-            
-            // Calculate total rows (success + errors)
-            $totalRows = $successCount + count($allErrors);
             
             // Log import history asynchronously
             LogImportHistory::dispatch(
                 auth()->id(),
                 'H',
-                $totalRows,
                 $successCount,
-                count($allErrors),
+                $successCount,
+                0,
                 $executionTime
             );
             
-            if (count($allErrors) > 0) {
-                // Clear cache after import (even with errors, some data might be imported)
-                $this->clearTransactionCache();
-                
-                // Clear import cache
-                $import->clearCache();
-                
-                return redirect()->route('transactions.header.import')
-                    ->with('import_errors', $allErrors)
-                    ->with('success_count', $successCount)
-                    ->with('error', "Import completed with {$successCount} success and " . count($allErrors) . " error(s). Please check the details below.");
-            }
-
             // Clear cache after successful import
             $this->clearTransactionCache();
             
