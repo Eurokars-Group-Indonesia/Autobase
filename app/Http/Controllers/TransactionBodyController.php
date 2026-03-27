@@ -132,7 +132,8 @@ class TransactionBodyController extends Controller
         }
         
         // Return view without transactions data - will be loaded via AJAX
-        return view('transaction-body.index', compact('brands'));
+        $canViewCostPrice = auth()->user()->hasPermission('cost.price.view');
+        return view('transaction-body.index', compact('brands', 'canViewCostPrice'));
     }
 
     public function search(Request $request)
@@ -249,10 +250,11 @@ class TransactionBodyController extends Controller
         }
         
         // Return JSON response for AJAX
+        $canViewCostPrice = auth()->user()->hasPermission('cost.price.view');
         return response()->json([
             'success' => true,
             'hasFilter' => $hasFilter,
-            'html' => view('transaction-body.partials.table', compact('transactions'))->render(),
+            'html' => view('transaction-body.partials.table', compact('transactions', 'canViewCostPrice'))->render(),
             'pagination' => view('transaction-body.partials.pagination', compact('transactions'))->render()
         ]);
     }
