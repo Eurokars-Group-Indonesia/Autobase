@@ -163,7 +163,10 @@
                     Invoice Date <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
                 </th>
                 <th style="min-width: 150px; cursor: pointer;" class="sortable-header" data-column="account_code">
-                    Account <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                    Account Code <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                </th>
+                <th style="min-width: 200px; cursor: pointer;" class="sortable-header" data-column="account_name">
+                    Account Name <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
                 </th>
                 <th style="min-width: 200px; cursor: pointer;" class="sortable-header" data-column="customer_name">
                     Customer Name <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
@@ -209,6 +212,7 @@
                     <td>{{ $transaction->wip_no }}</td>
                     <td>{{ $transaction->invoice_date ? $transaction->invoice_date->format('d M Y') : '-' }}</td>
                     <td>{{ $transaction->account_code ?? '-' }}</td>
+                    <td>{{ $transaction->account_name ?? '-' }}</td>
                     <td>{{ $transaction->customer_name ?? '-' }}</td>
                     <td>{{ $transaction->registration_no ?? '-' }}</td>
                     <td>{{ $transaction->chassis ?? '-' }}</td>
@@ -227,7 +231,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="16" class="text-center">No transactions found</td>
+                    <td colspan="17" class="text-center">No transactions found</td>
                 </tr>
             @endforelse
         </tbody>
