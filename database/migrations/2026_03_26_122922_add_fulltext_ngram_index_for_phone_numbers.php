@@ -37,10 +37,17 @@ return new class extends Migration
             // Index doesn't exist, continue
         }
         
-        // Create FULLTEXT index with ngram parser for phone numbers
-        // ngram allows partial matching for wildcard searches
-        // token_size=3 means it will index every 3-character sequence
-        DB::statement('CREATE FULLTEXT INDEX idx_phone_numbers_fulltext ON tx_header(phone_number_1, phone_number_2, phone_number_3, phone_number_4) WITH PARSER ngram');
+        // Drop existing NGRAM FULLTEXT index if it exists
+        try {
+            DB::statement('ALTER TABLE tx_header DROP INDEX idx_phone_numbers_fulltext');
+        } catch (\Exception $e) {
+            // Index doesn't exist, continue
+        }
+        
+        // Create FULLTEXT index without ngram parser for production compatibility
+        // This works on all MySQL versions without requiring NGRAM parser support
+        // Wildcard matching in queries will provide partial word matching functionality
+        DB::statement('CREATE FULLTEXT INDEX idx_phone_numbers_fulltext ON tx_header(phone_number_1, phone_number_2, phone_number_3, phone_number_4)');
     }
 
     /**
@@ -48,7 +55,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Drop ngram fulltext index
+        // Drop FULLTEXT index
         try {
             DB::statement('ALTER TABLE tx_header DROP INDEX idx_phone_numbers_fulltext');
         } catch (\Exception $e) {

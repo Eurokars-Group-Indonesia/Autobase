@@ -25,19 +25,7 @@ return new class extends Migration
             // Index doesn't exist, continue
         }
         
-        // Create FULLTEXT index with ngram parser for customer_name and registration_no
-        // ngram allows partial matching and supports short words (< 4 chars)
-        // This will handle searches like "ms dhivi", "mr john", etc.
-        DB::statement('CREATE FULLTEXT INDEX idx_customer_name_ngram ON tx_header(customer_name) WITH PARSER ngram');
-        DB::statement('CREATE FULLTEXT INDEX idx_registration_no_ngram ON tx_header(registration_no) WITH PARSER ngram');
-    }
-
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        // Drop ngram fulltext indexes
+        // Drop existing NGRAM indexes if they exist
         try {
             DB::statement('ALTER TABLE tx_header DROP INDEX idx_customer_name_ngram');
         } catch (\Exception $e) {
@@ -50,8 +38,35 @@ return new class extends Migration
             // Index doesn't exist, continue
         }
         
-        // Recreate regular FULLTEXT indexes
+        // Create FULLTEXT index without ngram parser for production compatibility
+        // This works on all MySQL versions without requiring NGRAM parser support
+        // Wildcard matching in queries will provide partial word matching functionality
         DB::statement('CREATE FULLTEXT INDEX idx_customer_name_fulltext ON tx_header(customer_name)');
         DB::statement('CREATE FULLTEXT INDEX idx_registration_no_fulltext ON tx_header(registration_no)');
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        // Drop FULLTEXT indexes
+        try {
+            DB::statement('ALTER TABLE tx_header DROP INDEX idx_customer_name_fulltext');
+        } catch (\Exception $e) {
+            // Index doesn't exist, continue
+        }
+        
+        try {
+            DB::statement('ALTER TABLE tx_header DROP INDEX idx_registration_no_fulltext');
+        } catch (\Exception $e) {
+            // Index doesn't exist, continue
+        }
+        
+        // Recreate B-TREE indexes
+        Schema::table('tx_header', function (Blueprint $table) {
+            $table->index('customer_name', 'idx_customer_name');
+            $table->index('registration_no', 'idx_registration_no');
+        });
     }
 };

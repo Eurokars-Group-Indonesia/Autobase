@@ -61,13 +61,17 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
                 // Search in header fields
                 $q->where(function($searchWhere) use ($search, $isDate, $isPhoneNumber, $isPureDigits) {
                     if ($isPhoneNumber) {
-                        // Use FULLTEXT search with ngram parser for phone numbers
+                        // Use FULLTEXT search with wildcards for phone numbers
+                        // Wildcard matching provides partial matching without NGRAM parser
+                        // Example: "62" will match "6281234567", "081" will match "081234567"
+                        $phoneSearch = $search . '*';
                         $searchWhere->whereRaw(
                             'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
-                            [$search]
+                            [$phoneSearch]
                         );
                     } elseif ($isPureDigits) {
                         // Pure digits (short numbers) - search in invoice_no, wip_no, chassis, account_code, AND phone numbers
+                        $phoneSearch = $search . '*';
                         $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
                                     ->orWhere('tx_header.wip_no', 'like', $search . '%')
                                     ->orWhere('tx_header.chassis', 'like', $search . '%')
@@ -75,7 +79,7 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
                                     // Also search in phone numbers (could be partial phone)
                                     ->orWhereRaw(
                                         'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
-                                        [$search]
+                                        [$phoneSearch]
                                     );
                     } else {
                         // Strip common titles/prefixes from search to improve matching

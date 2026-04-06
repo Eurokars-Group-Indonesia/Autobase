@@ -107,16 +107,18 @@ class TransactionHeaderController extends Controller
                             $isPureDigits = preg_match('/^\d+$/', $search) && !($isPhoneNumber);
                             
                             if ($isPhoneNumber) {
-                                // Use FULLTEXT search with ngram parser for phone numbers
-                                // This supports partial matching and is much faster than LIKE %search%
-                                // The ngram index will handle wildcard searches efficiently
+                                // Use FULLTEXT search with wildcards for phone numbers
+                                // Wildcard matching provides partial matching without NGRAM parser
+                                // Example: "62" will match "6281234567", "081" will match "081234567"
+                                $phoneSearch = $search . '*';
                                 $searchWhere->whereRaw(
                                     'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
-                                    [$search]
+                                    [$phoneSearch]
                                 );
                             } elseif ($isPureDigits) {
                                 // Pure digits (short numbers) - search in invoice_no, wip_no, chassis, AND phone numbers
                                 // This handles cases like "3200707", "22657" which could be invoice/wip numbers
+                                $phoneSearch = $search . '*';
                                 $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
                                             ->orWhere('tx_header.wip_no', 'like', $search . '%')
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
@@ -124,7 +126,7 @@ class TransactionHeaderController extends Controller
                                             // Also search in phone numbers (could be partial phone)
                                             ->orWhereRaw(
                                                 'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
-                                                [$search]
+                                                [$phoneSearch]
                                             );
                             } else {
                                 // Strip common titles/prefixes from search to improve matching
@@ -841,16 +843,18 @@ class TransactionHeaderController extends Controller
                             $isPureDigits = preg_match('/^\d+$/', $search) && !($isPhoneNumber);
                             
                             if ($isPhoneNumber) {
-                                // Use FULLTEXT search with ngram parser for phone numbers
-                                // This supports partial matching and is much faster than LIKE %search%
-                                // The ngram index will handle wildcard searches efficiently
+                                // Use FULLTEXT search with wildcards for phone numbers
+                                // Wildcard matching provides partial matching without NGRAM parser
+                                // Example: "62" will match "6281234567", "081" will match "081234567"
+                                $phoneSearch = $search . '*';
                                 $searchWhere->whereRaw(
                                     'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
-                                    [$search]
+                                    [$phoneSearch]
                                 );
                             } elseif ($isPureDigits) {
                                 // Pure digits (short numbers) - search in invoice_no, wip_no, chassis, AND phone numbers
                                 // This handles cases like "3200707", "22657" which could be invoice/wip numbers
+                                $phoneSearch = $search . '*';
                                 $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
                                             ->orWhere('tx_header.wip_no', 'like', $search . '%')
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
@@ -858,23 +862,15 @@ class TransactionHeaderController extends Controller
                                             // Also search in phone numbers (could be partial phone)
                                             ->orWhereRaw(
                                                 'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
-                                                [$search]
+                                                [$phoneSearch]
                                             );
                             } else {
                                 // Strip common titles/prefixes from search to improve matching
                                 // Titles like Mr, Mrs, Ms, Dr, etc. will be removed
                                 $searchClean = preg_replace('/^(mr|mrs|ms|miss|dr|prof|sir|madam|lady|lord)\.?\s+/i', '', trim($search));
                                 
-                                // For ngram FULLTEXT, use BOOLEAN MODE with wildcards for multi-word matching
-                                // Split search into words and add wildcards: "dimple bernando" -> "*dimple* *bernando*"
-                                // This ensures ALL words must be present (AND logic) with partial matching
-                                $words = preg_split('/\s+/', $searchClean);
-                                $fulltextSearch = implode(' ', array_map(function($word) {
-                                    return '*' . $word . '*';
-                                }, $words));
-                                
-                                // Use FULLTEXT search without NGRAM parser for production compatibility
-                                // Add wildcards to each word for partial word matching
+                                // For text search, use FULLTEXT search without NGRAM parser
+                                // Split search into words and add wildcards for partial word matching
                                 // Example: "ber" will match "Bernando", "bernando torrez" will match "Bernando Torrez Kampang"
                                 $words = preg_split('/\s+/', $searchClean);
                                 $fulltextSearch = implode(' ', array_map(function($word) {
