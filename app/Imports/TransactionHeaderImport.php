@@ -26,12 +26,14 @@ class TransactionHeaderImport implements
 
     protected $errors = [];
     protected $successCount = 0;
-    protected $userBrandCodes = null; // Cache user brand codes
-    public $currentRow = 1; // Start from 1 (header row) - public agar bisa diakses dari controller
+    protected $userBrandCodes = null;
+    protected $rowsToProcess = [];
+    protected $hasValidationErrors = false;
+    protected $allRowsCollected = false;
+    public $currentRow = 1;
 
     public function __construct()
     {
-        // Cache user brand codes at the start of import
         $this->userBrandCodes = cache()->remember(
             'import_user_brands_' . auth()->id(),
             now()->addMinutes(10),
@@ -51,12 +53,21 @@ class TransactionHeaderImport implements
         return $this->successCount;
     }
 
+    public function getRowsToProcess()
+    {
+        return $this->rowsToProcess;
+    }
+
+    public function hasValidationErrors()
+    {
+        return $this->hasValidationErrors;
+    }
+
     public function model(array $row)
     {
         $this->currentRow++;
-        
+
         try {
-            // Log raw row data for debugging
             Log::info("Processing row {$this->currentRow}", ['data' => $row]);
 
             // Collect all validation errors for this row
@@ -72,8 +83,20 @@ class TransactionHeaderImport implements
                 ];
             }
 
-            // Validate WIPNO is numeric (integer only)
+            // Parse numeric fields
             $wipNo = $this->parseNumeric($row['wipno'] ?? null);
+            $magicId = $this->parseNumeric($row['magich'] ?? null);
+            $mileage = $this->parseNumeric($row['mileage'] ?? null);
+            $invoiceNo = $this->parseNumeric($row['invno'] ?? null);
+            $exchangeRate = $this->parseDecimal($row['exchangerate'] ?? null);
+            $grossValue = $this->parseDecimal($row['grossvalue'] ?? null);
+            $netValue = $this->parseDecimal($row['netvalue'] ?? null);
+
+            // Parse dates
+            $invoiceDate = $this->parseDate($row['invdate'] ?? null);
+            $registrationDate = $this->parseDate($row['regdate'] ?? null);
+
+            // Validate WIPNO is numeric
             if (!empty($row['wipno']) && ($wipNo === null || $wipNo === '')) {
                 $rowErrors[] = [
                     'row' => $this->currentRow,
@@ -83,10 +106,6 @@ class TransactionHeaderImport implements
                 ];
             }
 
-            // Parse dates
-            $invoiceDate = $this->parseDate($row['invdate'] ?? null);
-            $registrationDate = $this->parseDate($row['regdate'] ?? null);
-
             if (empty($invoiceDate)) {
                 $rowErrors[] = [
                     'row' => $this->currentRow,
@@ -95,14 +114,6 @@ class TransactionHeaderImport implements
                     'error' => 'Invoice Date is required and must be a valid date'
                 ];
             }
-
-            // Parse numeric fields
-            $magicId = $this->parseNumeric($row['magich'] ?? null);
-            $mileage = $this->parseNumeric($row['mileage'] ?? null);
-            $invoiceNo = $this->parseNumeric($row['invno'] ?? null);
-            $exchangeRate = $this->parseDecimal($row['exchangerate'] ?? null);
-            $grossValue = $this->parseDecimal($row['grossvalue'] ?? null);
-            $netValue = $this->parseDecimal($row['netvalue'] ?? null);
 
             // Validate required numeric fields
             if ($magicId === null || $magicId === '') {
@@ -174,6 +185,26 @@ class TransactionHeaderImport implements
                     'field' => 'Account',
                     'value' => $row['account'],
                     'error' => 'Account Code must be 20 characters or less'
+                ];
+            }
+
+            // Validate account_name (max 150 chars)
+            if (!empty($row['slname']) && strlen($row['slname']) > 150) {
+                $rowErrors[] = [
+                    'row' => $this->currentRow,
+                    'field' => 'slname',
+                    'value' => substr($row['slname'], 0, 50) . '...',
+                    'error' => 'Account Name must be 150 characters or less'
+                ];
+            }
+
+            // Validate SLName (max 150 chars) - Optional
+            if (!empty($row['slname']) && strlen($row['slname']) > 150) {
+                $rowErrors[] = [
+                    'row' => $this->currentRow,
+                    'field' => 'SLName',
+                    'value' => substr($row['slname'], 0, 50) . '...',
+                    'error' => 'SL Name must be 150 characters or less'
                 ];
             }
 
@@ -341,22 +372,19 @@ class TransactionHeaderImport implements
             // If there are any validation errors, add them all and skip this row
             if (!empty($rowErrors)) {
                 $this->errors = array_merge($this->errors, $rowErrors);
+                $this->hasValidationErrors = true;
                 return null;
             }
 
-            // Check if record exists: wipno + invno + pos_code + magic_id
-            $existing = TransactionHeader::where('wip_no', $wipNo)
-                ->where('invoice_no', $invoiceNo)
-                ->where('pos_code', $row['posco'])
-                ->where('magic_id', $magicId)
-                ->first();
-
-            // Prepare data
+            // Prepare data for batch processing
             $data = [
+                'row' => $this->currentRow,
                 'wip_no' => $wipNo,
                 'invoice_no' => $invoiceNo,
                 'pos_code' => $row['posco'],
                 'account_code' => $row['account'] ?? null,
+                'account_name' => $row['slname'] ?? null,
+                'sl_name' => $row['slname'] ?? null,
                 'customer_name' => $row['custname'] ?? null,
                 'address_1' => $row['add1'] ?? null,
                 'address_2' => $row['add2'] ?? null,
@@ -379,69 +407,21 @@ class TransactionHeaderImport implements
                 'registration_date' => $registrationDate,
                 'description' => $row['description'] ?? null,
                 'engine_no' => $row['engineno'] ?? null,
-                'phone_number_1' => !empty($row['p1']) ? (string)$row['p1'] : null,
-                'phone_number_2' => !empty($row['p2']) ? (string)$row['p2'] : null,
-                'phone_number_3' => !empty($row['p3']) ? (string)$row['p3'] : null,
-                'phone_number_4' => !empty($row['p4']) ? (string)$row['p4'] : null,
+                'phone_number_1' => $row['p1'] ?? null,
+                'phone_number_2' => $row['p2'] ?? null,
+                'phone_number_3' => $row['p3'] ?? null,
+                'phone_number_4' => $row['p4'] ?? null,
                 'operator_code' => $row['oper'] ?? null,
                 'operator_name' => $row['opername'] ?? null,
                 'account_company' => $row['accco'],
                 'is_active' => '1',
             ];
 
-            if ($existing) {
-                // UPDATE: Record exists
-                $data['updated_by'] = (string) Auth::id();
-                $existing->update($data);
-                $header = $existing;
-                Log::info("Row {$this->currentRow} UPDATED", [
-                    'header_id' => $header->header_id,
-                    'wipno' => $wipNo,
-                    'invno' => $invoiceNo
-                ]);
-            } else {
-                // INSERT: Record not exists
-                $data['created_by'] = (string) Auth::id();
-                $data['unique_id'] = (string) \Illuminate\Support\Str::uuid();
-                // header_id dibiarkan null (auto increment)
-                $header = TransactionHeader::create($data);
-                Log::info("Row {$this->currentRow} INSERTED", [
-                    'header_id' => $header->header_id,
-                    'wipno' => $wipNo,
-                    'invno' => $invoiceNo
-                ]);
-            }
+            // Add to rows to process (batch processing)
+            $this->rowsToProcess[] = $data;
 
-            $this->successCount++;
-            return $header;
+            return null; // Return null, actual insert/update happens in processBatch()
 
-        } catch (\Illuminate\Database\QueryException $e) {
-            // Handle SQL errors specifically
-            $errorMessage = $e->getMessage();
-            
-            // Check for integer value error
-            if (strpos($errorMessage, 'Incorrect integer value') !== false) {
-                $this->errors[] = [
-                    'row' => $this->currentRow,
-                    'field' => 'WIPNO',
-                    'value' => $row['wipno'] ?? 'N/A',
-                    'error' => 'WIPNO must be a valid integer number. Text values like "WIP000001" are not allowed. Please use only numbers (e.g., 1, 123).'
-                ];
-            } else {
-                $this->errors[] = [
-                    'row' => $this->currentRow,
-                    'field' => 'Database',
-                    'value' => 'N/A',
-                    'error' => 'Database error: ' . $errorMessage
-                ];
-            }
-            
-            Log::error("Database error importing row {$this->currentRow}", [
-                'error' => $errorMessage,
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return null;
         } catch (\Exception $e) {
             $this->errors[] = [
                 'row' => $this->currentRow,
@@ -449,12 +429,13 @@ class TransactionHeaderImport implements
                 'value' => 'N/A',
                 'error' => $e->getMessage()
             ];
-            
-            Log::error("Error importing row {$this->currentRow}", [
+
+            Log::error("Error validating row {$this->currentRow}", [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
+            $this->hasValidationErrors = true;
             return null;
         }
     }
@@ -559,6 +540,57 @@ class TransactionHeaderImport implements
         } catch (\Exception $e) {
             Log::warning("Failed to parse date: {$date}", ['error' => $e->getMessage()]);
             return null;
+        }
+    }
+
+    public function processBatch()
+    {
+        // If there are validation errors, don't process anything
+        if ($this->hasValidationErrors || empty($this->rowsToProcess)) {
+            return;
+        }
+
+        try {
+            foreach ($this->rowsToProcess as $rowData) {
+                $row = $rowData['row'];
+                
+                // Check if record exists: wipno + invno + pos_code + magic_id
+                $existing = TransactionHeader::where('wip_no', $rowData['wip_no'])
+                    ->where('invoice_no', $rowData['invoice_no'])
+                    ->where('pos_code', $rowData['pos_code'])
+                    ->where('magic_id', $rowData['magic_id'])
+                    ->first();
+
+                if ($existing) {
+                    // UPDATE: Record exists
+                    $rowData['updated_by'] = (string) Auth::id();
+                    unset($rowData['row']); // Remove row number from data
+                    $existing->update($rowData);
+                    Log::info("Row {$row} UPDATED", [
+                        'header_id' => $existing->header_id,
+                        'wipno' => $rowData['wip_no'],
+                        'invno' => $rowData['invoice_no']
+                    ]);
+                } else {
+                    // INSERT: Record not exists
+                    $rowData['created_by'] = (string) Auth::id();
+                    $rowData['unique_id'] = (string) \Illuminate\Support\Str::uuid();
+                    unset($rowData['row']); // Remove row number from data
+                    TransactionHeader::create($rowData);
+                    Log::info("Row {$row} INSERTED", [
+                        'wipno' => $rowData['wip_no'],
+                        'invno' => $rowData['invoice_no']
+                    ]);
+                }
+
+                $this->successCount++;
+            }
+        } catch (\Exception $e) {
+            Log::error("Batch processing error", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
         }
     }
 

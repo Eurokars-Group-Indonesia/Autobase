@@ -126,6 +126,119 @@
     #clearBtn {
         display: none;
     }
+    
+    /* Sortable column headers */
+    .sortable-header {
+        position: relative;
+        user-select: none;
+        transition: background-color 0.2s;
+    }
+    
+    .sortable-header:hover {
+        background-color: #fa891a !important;
+        color: white;
+    }
+    
+    [data-theme="dark"] .sortable-header:hover {
+        background-color: #fa891a !important;
+        color: white;
+    }
+    
+    .sortable-header {
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .sort-icon {
+        display: inline-block;
+        margin-left: 5px;
+        font-size: 12px;
+    }
+    
+    /* Show both icons by default with gray color */
+    .sort-icon i {
+        display: inline-block;
+        color: #6c757d !important;
+        opacity: 0.5;
+    }
+    
+    /* Hide both icons when column is sorted */
+    .sortable-header.sorted-asc .sort-icon i,
+    .sortable-header.sorted-desc .sort-icon i {
+        display: none !important;
+    }
+    
+    /* Show only up arrow in white for ascending */
+    .sortable-header.sorted-asc .sort-icon .bi-arrow-up {
+        display: inline-block !important;
+        color: white !important;
+        opacity: 1 !important;
+    }
+    
+    /* Show only down arrow in white for descending */
+    .sortable-header.sorted-desc .sort-icon .bi-arrow-down {
+        display: inline-block !important;
+        color: white !important;
+        opacity: 1 !important;
+    }
+    
+    .sortable-header.sorted-asc,
+    .sortable-header.sorted-desc {
+        background-color: #fa891a !important;
+        color: white !important;
+    }
+
+    /* Inline body details sortable column headers */
+    .sortable-header-inline {
+        position: relative;
+        user-select: none;
+        transition: background-color 0.2s;
+        cursor: pointer;
+    }
+
+    .sortable-header-inline:hover {
+        background-color: #fa891a !important;
+        color: white;
+    }
+
+    .sortable-header-inline .sort-icon {
+        display: inline-block;
+        margin-left: 5px;
+        font-size: 10px;
+    }
+
+    /* Show both icons by default with gray color */
+    .sortable-header-inline .sort-icon i {
+        display: inline-block;
+        color: #6c757d !important;
+        opacity: 0.5;
+    }
+
+    /* Hide both icons when column is sorted */
+    .sortable-header-inline.sorted-asc .sort-icon i,
+    .sortable-header-inline.sorted-desc .sort-icon i {
+        display: none !important;
+    }
+
+    /* Show only up arrow in white for ascending */
+    .sortable-header-inline.sorted-asc .sort-icon .bi-arrow-up {
+        display: inline-block !important;
+        color: white !important;
+        opacity: 1 !important;
+    }
+
+    /* Show only down arrow in white for descending */
+    .sortable-header-inline.sorted-desc .sort-icon .bi-arrow-down {
+        display: inline-block !important;
+        color: white !important;
+        opacity: 1 !important;
+    }
+
+    .sortable-header-inline.sorted-asc,
+    .sortable-header-inline.sorted-desc {
+        background-color: #fa891a !important;
+        color: white !important;
+    }
 </style>
 @endpush
 
@@ -152,8 +265,7 @@
                         <div class="col-md-1">
                             <label class="form-label">Per Page</label>
                             <select class="form-select form-select-sm" name="per_page" id="per_page">
-                                <option value="10" {{ request('per_page', 10) == 10 ? 'selected' : '' }}>10</option>
-                                <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
+                                <option value="20" {{ request('per_page', 20) == 20 ? 'selected' : '' }}>20</option>
                                 <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
                                 <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
                             </select>
@@ -172,18 +284,18 @@
                         <div class="col-md-3">
                             <label class="form-label">Search</label>
                             <input type="text" class="form-control form-control-sm" name="search" id="search"
-                                   placeholder="Customer, Chassis, Invoice No, WIP No, Reg No, Date..." 
+                                   placeholder="Customer, Chassis, Invoice, WIP, Phone, Reg No..."
                                    value="{{ request('search') }}">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Date From</label>
-                            <input type="text" class="form-control form-control-sm" id="date_from_display" 
+                            <input type="text" class="form-control form-control-sm" id="date_from_display"
                                    placeholder="Select date from" readonly>
                             <input type="hidden" name="date_from" id="date_from" value="{{ request('date_from') }}">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Date To</label>
-                            <input type="text" class="form-control form-control-sm" id="date_to_display" 
+                            <input type="text" class="form-control form-control-sm" id="date_to_display"
                                    placeholder="Select date to" readonly>
                             <input type="hidden" name="date_to" id="date_to" value="{{ request('date_to') }}">
                         </div>
@@ -248,13 +360,17 @@
                                     <th class="text-center">Description</th>
                                     <th class="text-center">Date Decard</th>
                                     <th class="text-center">Qty</th>
+                                    @if($canViewCostPrice)
                                     <th class="text-center">Cost Price</th>
+                                    @endif
                                     <th class="text-center">Selling Price</th>
                                     <th class="text-center">Discount %</th>
                                     <th class="text-center">Extended Price</th>
+                                    <th class="text-center">Unit</th>
                                     <th class="text-center">VAT</th>
                                     <th class="text-center">Analysis Code</th>
                                     <th class="text-center">Parts/Labour</th>
+                                    <th class="text-center">Operator Name</th>
                                 </tr>
                             </thead>
                             <tbody id="detailsTableBody">
@@ -262,9 +378,9 @@
                             </tbody>
                             <tfoot class="table-light" style="position: sticky; bottom: 0; z-index: 1;">
                                 <tr>
-                                    <th colspan="8" class="text-end">Total Extended Price :</th>
+                                    <th colspan="{{ $canViewCostPrice ? 10 : 9 }}" class="text-end">Total Extended Price :</th>
                                     <th class="text-end" id="totalExtPrice">0.00</th>
-                                    <th colspan="3"></th>
+                                    <th colspan="4"></th>
                                 </tr>
                             </tfoot>
                         </table>
@@ -360,7 +476,9 @@
                 date_to: $('#date_to').val(),
                 brand_code: $('#brand_code').val(),
                 per_page: $('#per_page').val(),
-                page: page
+                page: page,
+                sort_column: currentSortColumn,
+                sort_direction: currentSortDirection
             };
 
             // Show loading indicator
@@ -380,6 +498,9 @@
                         // Update pagination
                         $('#paginationContainer').html(response.pagination);
                         
+                        // Reapply sort icons after table update
+                        updateSortIcons(currentSortColumn, currentSortDirection);
+                        
                         // Show content
                         $('#tableContainer').show();
                         $('#paginationContainer').show();
@@ -389,17 +510,17 @@
                         if (updateUrl) {
                             const url = new URL(window.location);
                             Object.keys(formData).forEach(key => {
-                                if (formData[key] && formData[key] !== '10' && key !== 'per_page') {
+                                if (formData[key] && formData[key] !== '20' && key !== 'per_page') {
                                     url.searchParams.set(key, formData[key]);
-                                } else if (key === 'per_page' && formData[key] !== '10') {
+                                } else if (key === 'per_page' && formData[key] !== '20') {
                                     url.searchParams.set(key, formData[key]);
                                 } else {
                                     url.searchParams.delete(key);
                                 }
                             });
-                            
+
                             // Only update URL if there are actual filters
-                            if (hasActiveFilters() || formData.per_page !== '10' || formData.page > 1) {
+                            if (hasActiveFilters() || formData.per_page !== '20' || formData.page > 1) {
                                 window.history.pushState({}, '', url);
                             } else {
                                 // Clear URL if no filters
@@ -464,18 +585,18 @@
         $(document).ready(function() {
             // Check if there are URL parameters
             const urlParams = new URLSearchParams(window.location.search);
-            const hasUrlParams = urlParams.has('search') || urlParams.has('date_from') || 
-                                 urlParams.has('date_to') || urlParams.has('brand_code') || 
+            const hasUrlParams = urlParams.has('search') || urlParams.has('date_from') ||
+                                 urlParams.has('date_to') || urlParams.has('brand_code') ||
                                  urlParams.has('page');
-            
+
             // Show clear button if there are URL parameters (coming from previous search)
             if (hasUrlParams && hasActiveFilters()) {
                 $('#clearBtn').show();
             }
-            
+
             // Update export button on initial load
             updateExportButton();
-            
+
             // Load data without updating URL if no params, otherwise with URL update
             performSearch({{ request('page', 1) }}, hasUrlParams, false);
         });
@@ -494,18 +615,18 @@
             $('#date_from_display').val('');
             $('#date_to_display').val('');
             $('#brand_code').val('');
-            $('#per_page').val('10');
+            $('#per_page').val('20');
             dateFromPicker.clear();
             dateToPicker.clear();
-            
+
             // Hide clear button
             $('#clearBtn').hide();
-            
+
             // Hide export button
             $('#exportBtn').hide();
-            
-            // Perform search with cleared filters to show default 10 data
-            performSearch(1, false, false);
+
+            // Perform search with cleared filters and update URL to remove all parameters
+            performSearch(1, true, false);
         });
 
         // Handle per_page change
@@ -531,6 +652,132 @@
             performSearch(page, true, isClearButtonVisible);
         });
 
+        // Handle column sorting
+        let currentSortColumn = '{{ request('sort_column', 'invoice_date') }}';
+        let currentSortDirection = '{{ request('sort_direction', 'desc') }}';
+
+        // Initialize sort icons on page load
+        $(document).ready(function() {
+            if (currentSortColumn && currentSortDirection) {
+                updateSortIcons(currentSortColumn, currentSortDirection);
+            }
+        });
+
+        $(document).on('click', '.sortable-header', function(e) {
+            e.preventDefault();
+            const column = $(this).data('column');
+            
+            // Toggle sort direction
+            if (currentSortColumn === column) {
+                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortColumn = column;
+                currentSortDirection = 'asc';
+            }
+            
+            // Update sort icons
+            updateSortIcons(currentSortColumn, currentSortDirection);
+            
+            // Perform search with new sort parameters
+            const isClearButtonVisible = $('#clearBtn').is(':visible');
+            performSearch(1, true, isClearButtonVisible);
+        });
+
+        function updateSortIcons(column, direction) {
+            // Remove all sort classes
+            $('.sortable-header').removeClass('sorted-asc sorted-desc');
+
+            // Add appropriate class to current column
+            const header = $('.sortable-header[data-column="' + column + '"]');
+            if (direction === 'asc') {
+                header.addClass('sorted-asc');
+            } else {
+                header.addClass('sorted-desc');
+            }
+        }
+
+        // Inline body details sorting
+        $(document).on('click', '.sortable-header-inline', function(e) {
+            e.preventDefault();
+            const $header = $(this);
+            const $tbody = $header.closest('table').find('.body-details-tbody');
+            const column = $header.data('column');
+
+            // Get current sort direction
+            const isAsc = !$header.hasClass('sorted-asc');
+
+            // Update sort icons for this table
+            $header.closest('thead').find('.sortable-header-inline').removeClass('sorted-asc sorted-desc');
+            $header.addClass(isAsc ? 'sorted-asc' : 'sorted-desc');
+
+            // Get rows and sort them
+            const $rows = $tbody.find('tr').get();
+            
+            $rows.sort(function(a, b) {
+                const $rowA = $(a);
+                const $rowB = $(b);
+                
+                // Get cell index based on column
+                const cellIndex = getColumnIndex(column);
+                
+                const textA = $rowA.find('td').eq(cellIndex).text().trim();
+                const textB = $rowB.find('td').eq(cellIndex).text().trim();
+                
+                // Parse values based on column type
+                let valA = parseValue(column, textA);
+                let valB = parseValue(column, textB);
+                
+                if (valA < valB) {
+                    return isAsc ? -1 : 1;
+                }
+                if (valA > valB) {
+                    return isAsc ? 1 : -1;
+                }
+                return 0;
+            });
+            
+            // Re-append sorted rows
+            $.each($rows, function(index, row) {
+                $tbody.append(row);
+                // Update row number
+                $(row).find('td:first').text(index + 1);
+            });
+        });
+        
+        function getColumnIndex(column) {
+            const columnMap = {
+                'part_no': 1,
+                'description': 2,
+                'date_decard': 3,
+                'qty': 4,
+                'cost_price': {{ $canViewCostPrice ? '5' : 'null' }},
+                'selling_price': {{ $canViewCostPrice ? '6' : '5' }},
+                'discount': {{ $canViewCostPrice ? '7' : '6' }},
+                'extended_price': {{ $canViewCostPrice ? '8' : '7' }},
+                'unit': {{ $canViewCostPrice ? '9' : '8' }},
+                'part_or_labour': {{ $canViewCostPrice ? '10' : '9' }}
+            };
+            return columnMap[column] || 1;
+        }
+        
+        function parseValue(column, text) {
+            const numericColumns = ['qty', 'selling_price', 'discount', 'extended_price'];
+            @if($canViewCostPrice)
+            numericColumns.push('cost_price');
+            @endif
+            
+            if (numericColumns.includes(column)) {
+                // Remove commas and parse as float
+                return parseFloat(text.replace(/,/g, '')) || 0;
+            }
+            if (column === 'date_decard') {
+                // Parse date
+                return Date.parse(text) || 0;
+            }
+            // Default string comparison
+            return text.toLowerCase();
+        }
+
         // Handle view details button click (when not filtering - use modal) - Using jQuery
         $(document).on('click', '.view-details', function(e) {
             e.preventDefault();
@@ -538,24 +785,24 @@
             const invNo = $(this).data('invno');
             const posCode = $(this).data('poscode');
             const magicId = $(this).data('magicid');
-            
+
             console.log('View details clicked:', wipNo, invNo, magicId);
-            
+
             // Show modal
             const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
             modal.show();
-            
+
             // Reset modal state
             $('#modalLoading').show();
             $('#modalContent').hide();
             $('#modalError').hide();
             $('#detailsTableBody').empty();
-            
+
             // Set header info
             $('#modalWipNo').text(wipNo);
             $('#modalInvNo').text(invNo);
             $('#modalMagicId').text(magicId);
-            
+
             // Fetch data via AJAX
             $.ajax({
                 url: '{{ route("transactions.body.details") }}',
@@ -568,16 +815,22 @@
                 },
                 success: function(response) {
                     $('#modalLoading').hide();
-                    
+
                     if (response.success && response.data.length > 0) {
                         let totalExtPrice = 0;
                         let html = '';
-                        
+                        const canViewCostPrice = response.canViewCostPrice;
+
                         response.data.forEach(function(item, index) {
                             totalExtPrice += parseFloat(item.extended_price || 0);
-                            
+
                             const dateDecard = item.date_decard ? new Date(item.date_decard).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : '-';
-                            
+
+                            let costPriceHtml = '';
+                            if (canViewCostPrice) {
+                                costPriceHtml = `<td class="text-end">${parseFloat(item.cost_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>`;
+                            }
+
                             html += `
                                 <tr>
                                     <td class="text-center">${index + 1}</td>
@@ -585,10 +838,11 @@
                                     <td>${item.description || '-'}</td>
                                     <td class="text-center">${dateDecard}</td>
                                     <td class="text-end">${parseFloat(item.qty || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                    <td class="text-end">${parseFloat(item.cost_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    ${costPriceHtml}
                                     <td class="text-end">${parseFloat(item.selling_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                                     <td class="text-end">${parseFloat(item.discount || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}%</td>
                                     <td class="text-end">${parseFloat(item.extended_price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td>${item.unit || '-'}</td>
                                     <td>${item.vat || '-'}</td>
                                     <td>${item.analysis_code || '-'}</td>
                                     <td class="text-center">
@@ -596,10 +850,11 @@
                                             ${item.part_or_labour === 'P' ? 'Part' : 'Labour'}
                                         </span>
                                     </td>
+                                    <td>${item.operator_name || '-'}</td>
                                 </tr>
                             `;
                         });
-                        
+
                         $('#detailsTableBody').html(html);
                         $('#totalExtPrice').text(totalExtPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
                         $('#modalContent').show();

@@ -83,7 +83,7 @@ echo "========================================="
 
 # Check user
 echo -n "Checking container user... "
-USER_CHECK=$(docker exec -it laravel_app whoami 2>&1 | tr -d '\r\n')
+USER_CHECK=$(docker exec -it autobase_app whoami 2>&1 | tr -d '\r\n')
 if [[ "$USER_CHECK" == "www-data" ]]; then
     echo -e "${GREEN}✓ Running as www-data${NC}"
 else
@@ -92,7 +92,7 @@ fi
 
 # Check permissions
 echo -n "Checking storage permissions... "
-PERM_CHECK=$(docker exec -it laravel_app ls -ld /var/www/html/storage 2>&1 | awk '{print $1}')
+PERM_CHECK=$(docker exec -it autobase_app ls -ld /var/www/html/storage 2>&1 | awk '{print $1}')
 if [[ "$PERM_CHECK" == drwxrwxr-x* ]]; then
     echo -e "${GREEN}✓ Permissions correct (775)${NC}"
 else
@@ -101,8 +101,8 @@ fi
 
 # Test write
 echo -n "Testing write access... "
-if docker exec -it laravel_app touch /var/www/html/storage/test.txt 2>/dev/null; then
-    docker exec -it laravel_app rm /var/www/html/storage/test.txt 2>/dev/null
+if docker exec -it autobase_app touch /var/www/html/storage/test.txt 2>/dev/null; then
+    docker exec -it autobase_app rm /var/www/html/storage/test.txt 2>/dev/null
     echo -e "${GREEN}✓ Write access OK${NC}"
 else
     echo -e "${RED}✗ Cannot write to storage${NC}"
@@ -110,7 +110,7 @@ fi
 
 # Check supervisord
 echo -n "Checking supervisord... "
-SUPERVISOR_CHECK=$(docker exec -it laravel_app supervisorctl status 2>&1 | grep -c "RUNNING")
+SUPERVISOR_CHECK=$(docker exec -it autobase_app supervisorctl status 2>&1 | grep -c "RUNNING")
 if [ "$SUPERVISOR_CHECK" -gt 0 ]; then
     echo -e "${GREEN}✓ Supervisord running ($SUPERVISOR_CHECK processes)${NC}"
 else

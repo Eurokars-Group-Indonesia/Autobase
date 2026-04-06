@@ -78,6 +78,67 @@
     #clearBtn {
         display: none;
     }
+    
+    /* Sortable column headers */
+    .sortable-header {
+        position: relative;
+        user-select: none;
+        transition: background-color 0.2s;
+    }
+    
+    .sortable-header:hover {
+        background-color: #fa891a !important;
+        color: white;
+    }
+    
+    [data-theme="dark"] .sortable-header:hover {
+        background-color: #fa891a !important;
+        color: white;
+    }
+    
+    .sortable-header {
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .sort-icon {
+        display: inline-block;
+        margin-left: 5px;
+        font-size: 12px;
+    }
+    
+    /* Show both icons by default with gray color */
+    .sort-icon i {
+        display: inline-block;
+        color: #6c757d !important;
+        opacity: 0.5;
+    }
+    
+    /* Hide both icons when column is sorted */
+    .sortable-header.sorted-asc .sort-icon i,
+    .sortable-header.sorted-desc .sort-icon i {
+        display: none !important;
+    }
+    
+    /* Show only up arrow in white for ascending */
+    .sortable-header.sorted-asc .sort-icon .bi-arrow-up {
+        display: inline-block !important;
+        color: white !important;
+        opacity: 1 !important;
+    }
+    
+    /* Show only down arrow in white for descending */
+    .sortable-header.sorted-desc .sort-icon .bi-arrow-down {
+        display: inline-block !important;
+        color: white !important;
+        opacity: 1 !important;
+    }
+    
+    .sortable-header.sorted-asc,
+    .sortable-header.sorted-desc {
+        background-color: #fa891a !important;
+        color: white !important;
+    }
 </style>
 @endpush
 
@@ -104,8 +165,7 @@
                         <div class="col-md-1">
                             <label class="form-label">Per Page</label>
                             <select class="form-select form-select-sm" name="per_page" id="per_page">
-                                <option value="10" {{ request('per_page', 10) == 10 ? 'selected' : '' }}>10</option>
-                                <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
+                                <option value="20" {{ request('per_page', 20) == 20 ? 'selected' : '' }}>20</option>
                                 <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
                                 <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
                             </select>
@@ -246,7 +306,9 @@
                 date_to: $('#date_to').val(),
                 brand_code: $('#brand_code').val(),
                 per_page: $('#per_page').val(),
-                page: page
+                page: page,
+                sort_column: currentSortColumn,
+                sort_direction: currentSortDirection
             };
 
             // Show loading indicator
@@ -266,6 +328,9 @@
                         // Update pagination
                         $('#paginationContainer').html(response.pagination);
                         
+                        // Reapply sort icons after table update
+                        updateSortIcons(currentSortColumn, currentSortDirection);
+                        
                         // Show content
                         $('#tableContainer').show();
                         $('#paginationContainer').show();
@@ -275,17 +340,17 @@
                         if (updateUrl) {
                             const url = new URL(window.location);
                             Object.keys(formData).forEach(key => {
-                                if (formData[key] && formData[key] !== '10' && key !== 'per_page') {
+                                if (formData[key] && formData[key] !== '20' && key !== 'per_page') {
                                     url.searchParams.set(key, formData[key]);
-                                } else if (key === 'per_page' && formData[key] !== '10') {
+                                } else if (key === 'per_page' && formData[key] !== '20') {
                                     url.searchParams.set(key, formData[key]);
                                 } else {
                                     url.searchParams.delete(key);
                                 }
                             });
-                            
+
                             // Only update URL if there are actual filters
-                            if (hasActiveFilters() || formData.per_page !== '10' || formData.page > 1) {
+                            if (hasActiveFilters() || formData.per_page !== '20' || formData.page > 1) {
                                 window.history.pushState({}, '', url);
                             } else {
                                 // Clear URL if no filters
@@ -350,18 +415,18 @@
         $(document).ready(function() {
             // Check if there are URL parameters
             const urlParams = new URLSearchParams(window.location.search);
-            const hasUrlParams = urlParams.has('search') || urlParams.has('date_from') || 
-                                 urlParams.has('date_to') || urlParams.has('brand_code') || 
+            const hasUrlParams = urlParams.has('search') || urlParams.has('date_from') ||
+                                 urlParams.has('date_to') || urlParams.has('brand_code') ||
                                  urlParams.has('page');
-            
+
             // Show clear button if there are URL parameters (coming from previous search)
             if (hasUrlParams && hasActiveFilters()) {
                 $('#clearBtn').show();
             }
-            
+
             // Update export button on initial load
             updateExportButton();
-            
+
             // Load data without updating URL if no params, otherwise with URL update
             performSearch({{ request('page', 1) }}, hasUrlParams, false);
         });
@@ -380,7 +445,7 @@
             $('#date_from_display').val('');
             $('#date_to_display').val('');
             $('#brand_code').val('');
-            $('#per_page').val('10');
+            $('#per_page').val('20');
             dateFromPicker.clear();
             dateToPicker.clear();
             
@@ -410,6 +475,50 @@
             const isClearButtonVisible = $('#clearBtn').is(':visible');
             performSearch(page, true, isClearButtonVisible);
         });
+
+        // Handle column sorting
+        let currentSortColumn = '{{ request('sort_column', 'date_decard') }}';
+        let currentSortDirection = '{{ request('sort_direction', 'desc') }}';
+
+        // Initialize sort icons on page load
+        $(document).ready(function() {
+            if (currentSortColumn && currentSortDirection) {
+                updateSortIcons(currentSortColumn, currentSortDirection);
+            }
+        });
+
+        $(document).on('click', '.sortable-header', function(e) {
+            e.preventDefault();
+            const column = $(this).data('column');
+            
+            // Toggle sort direction
+            if (currentSortColumn === column) {
+                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortColumn = column;
+                currentSortDirection = 'asc';
+            }
+            
+            // Update sort icons
+            updateSortIcons(currentSortColumn, currentSortDirection);
+            
+            // Perform search with new sort parameters
+            const isClearButtonVisible = $('#clearBtn').is(':visible');
+            performSearch(1, true, isClearButtonVisible);
+        });
+
+        function updateSortIcons(column, direction) {
+            // Remove all sort classes
+            $('.sortable-header').removeClass('sorted-asc sorted-desc');
+            
+            // Add appropriate class to current column
+            const header = $('.sortable-header[data-column="' + column + '"]');
+            if (direction === 'asc') {
+                header.addClass('sorted-asc');
+            } else {
+                header.addClass('sorted-desc');
+            }
+        }
     });
 </script>
 @endpush

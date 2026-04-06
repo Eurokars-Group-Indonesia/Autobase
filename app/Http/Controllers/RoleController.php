@@ -26,7 +26,11 @@ class RoleController extends Controller
             });
         }
         
-        $roles = $query->paginate(10)->withQueryString();
+        // Pagination
+        $perPage = request('per_page', 20);
+        $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
+        
+        $roles = $query->paginate($perPageValue)->withQueryString();
         return view('roles.index', compact('roles'));
     }
 

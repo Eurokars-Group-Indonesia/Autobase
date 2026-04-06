@@ -17,6 +17,7 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
     protected $dateTo;
     protected $userBrandCodes;
     protected $brandCode;
+    protected $canViewCostPrice;
 
     public function __construct($search = null, $dateFrom = null, $dateTo = null, $userBrandCodes = [], $brandCode = null)
     {
@@ -25,6 +26,7 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
         $this->dateTo = $dateTo;
         $this->userBrandCodes = $userBrandCodes;
         $this->brandCode = $brandCode;
+        $this->canViewCostPrice = auth()->user()->hasPermission('cost.price.view');
     }
 
     public function collection()
@@ -65,7 +67,7 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
         $rows = collect();
         
         // Add header row
-        $rows->push([
+        $headerRow = [
             'No',
             'Part No',
             'Invoice No',
@@ -75,7 +77,13 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
             'Date Decard',
             'Qty',
             'Unit',
-            'Cost Price',
+        ];
+        
+        if ($this->canViewCostPrice) {
+            $headerRow[] = 'Cost Price';
+        }
+        
+        $headerRow = array_merge($headerRow, [
             'Selling Price',
             'Discount %',
             'Extended Price',
@@ -88,10 +96,12 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
             'Line'
         ]);
         
+        $rows->push($headerRow);
+        
         // Add data rows
         $no = 1;
         foreach ($bodies as $body) {
-            $rows->push([
+            $dataRow = [
                 $no++,
                 $body->part_no ?? '',
                 $body->invoice_no ?? '',
@@ -101,7 +111,13 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
                 $body->date_decard ? \Carbon\Carbon::parse($body->date_decard)->format('d-m-Y') : '',
                 $body->qty ?? 0,
                 $body->unit ?? '',
-                $body->cost_price ?? 0,
+            ];
+            
+            if ($this->canViewCostPrice) {
+                $dataRow[] = $body->cost_price ?? 0;
+            }
+            
+            $dataRow = array_merge($dataRow, [
                 $body->selling_price ?? 0,
                 $body->discount ?? 0,
                 $body->extended_price ?? 0,
@@ -113,6 +129,8 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
                 ($body->brand->brand_code ?? '') . ($body->brand ? ' - ' . $body->brand->brand_name : ''),
                 $body->line ?? ''
             ]);
+            
+            $rows->push($dataRow);
         }
         
         return $rows;

@@ -30,7 +30,7 @@ goto menu
 cls
 echo Container Stats (Press Ctrl+C to stop)
 echo ========================================
-docker stats laravel_app laravel_queue laravel_nginx
+docker stats autobase_app autobase_queue autobase_nginx
 goto menu
 
 :applogs
@@ -51,7 +51,7 @@ goto menu
 cls
 echo Queue Worker Status
 echo ========================================
-docker exec laravel_queue supervisorctl status
+docker exec autobase_queue supervisorctl status
 echo.
 pause
 goto menu
@@ -60,7 +60,7 @@ goto menu
 cls
 echo Restarting Queue Workers...
 echo ========================================
-docker exec laravel_queue supervisorctl restart laravel-queue-worker:*
+docker exec autobase_queue supervisorctl restart laravel-queue-worker:*
 echo.
 echo Workers restarted!
 pause
@@ -70,7 +70,7 @@ goto menu
 cls
 echo PHP-FPM Status
 echo ========================================
-docker exec laravel_app php-fpm -t
+docker exec autobase_app php-fpm -t
 echo.
 echo PHP-FPM Configuration Test Passed!
 pause

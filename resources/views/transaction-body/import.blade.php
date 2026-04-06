@@ -226,7 +226,7 @@
                     <span class="badge bg-success">{{ session('success_count') }} records imported successfully</span>
                 </p>
             @endif
-            <p class="mb-3">The following rows could not be imported:</p>
+            <p class="mb-3">Import process stopped because an error.</p>
             
             <div class="error-list">
                 @foreach(session('import_errors') as $error)
