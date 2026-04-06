@@ -29,7 +29,7 @@ echo.
 echo ========================================
 echo Checking queue workers...
 echo ========================================
-docker exec laravel_queue supervisorctl status
+docker exec autobase_queue supervisorctl status
 echo.
 
 echo ========================================
@@ -39,7 +39,7 @@ echo.
 echo Useful commands:
 echo - View app logs:   docker-compose logs -f app
 echo - View queue logs: docker-compose logs -f queue
-echo - Check stats:     docker stats laravel_app laravel_queue
-echo - Restart workers: docker exec laravel_queue supervisorctl restart laravel-queue-worker:*
+echo - Check stats:     docker stats autobase_app autobase_queue
+echo - Restart workers: docker exec autobase_queue supervisorctl restart laravel-queue-worker:*
 echo.
 pause

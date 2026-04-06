@@ -124,7 +124,7 @@ if [ $attempt -eq $max_attempts ]; then
     echo "  - MySQL server is running and accessible"
     echo ""
     echo "You can:"
-    echo "  1. Run migrations manually: docker exec -it laravel_app php artisan migrate --force"
+    echo "  1. Run migrations manually: docker exec -it autobase_app php artisan migrate --force"
     echo "  2. Set SKIP_DB_SETUP=true to skip this check"
     echo ""
     echo "Continuing without database setup..."
@@ -135,7 +135,7 @@ else
         echo "✓ Migrations completed successfully!"
     else
         echo "⚠ Warning: Migrations failed!"
-        echo "You can run manually: docker exec -it laravel_app php artisan migrate --force"
+        echo "You can run manually: docker exec -it autobase_app php artisan migrate --force"
     fi
     
     # Run seeders if SEED_DATABASE is set to true
