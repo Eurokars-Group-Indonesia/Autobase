@@ -81,24 +81,24 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
                         // Strip common titles/prefixes from search to improve matching
                         $searchClean = preg_replace('/^(mr|mrs|ms|miss|dr|prof|sir|madam|lady|lord)\.?\s+/i', '', trim($search));
                         
-                        // For ngram FULLTEXT, use BOOLEAN MODE with wildcards for multi-word matching
+                        // For text search, use FULLTEXT search without NGRAM parser
+                        // Split search into words and add wildcards for partial word matching
+                        // Example: "ber" will match "Bernando", "bernando torrez" will match "Bernando Torrez Kampang"
                         $words = preg_split('/\s+/', $searchClean);
                         $fulltextSearch = implode(' ', array_map(function($word) {
-                            return '*' . $word . '*';
+                            return $word . '*';  // Add wildcard for partial word matching
                         }, $words));
                         
-                        // Use FULLTEXT search with ngram parser for customer_name and registration_no
+                        // Use FULLTEXT search for customer_name and registration_no
+                        // BOOLEAN MODE with wildcards allows partial word matching
                         $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
                                     ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
-                                    // Use prefix LIKE for chassis, invoice_no, wip_no, account_code
+                                    // Use prefix LIKE for chassis, invoice_no, wip_no, account_code (uses B-TREE index)
                                     ->orWhere('tx_header.chassis', 'like', $search . '%')
                                     ->orWhere('tx_header.invoice_no', 'like', $search . '%')
                                     ->orWhere('tx_header.wip_no', 'like', $search . '%')
                                     ->orWhere('tx_header.account_code', 'like', $search . '%')
-                                    ->orWhere(function($accountWhere) use ($fulltextSearch) {
-                                        $accountWhere->whereNotNull('tx_header.account_name')
-                                                    ->whereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
-                                    });
+                                    ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
                     }
                     
                     // Only add date search if format matches

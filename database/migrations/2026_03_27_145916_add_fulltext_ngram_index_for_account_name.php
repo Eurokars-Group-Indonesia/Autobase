@@ -18,10 +18,17 @@ return new class extends Migration
             // Index doesn't exist, continue
         }
         
-        // Create FULLTEXT index with ngram parser for account_name
-        // ngram allows partial matching and supports short words (< 4 chars)
-        // This will handle searches like "mr john", "ms dhivi", etc.
-        DB::statement('CREATE FULLTEXT INDEX idx_account_name_ngram ON tx_header(account_name) WITH PARSER ngram');
+        // Drop existing NGRAM FULLTEXT index if it exists
+        try {
+            DB::statement('ALTER TABLE tx_header DROP INDEX idx_account_name_ngram');
+        } catch (\Exception $e) {
+            // Index doesn't exist, continue
+        }
+        
+        // Create FULLTEXT index without ngram parser for production compatibility
+        // This works on all MySQL versions without requiring NGRAM parser support
+        // Wildcard matching in queries will provide partial word matching functionality
+        DB::statement('CREATE FULLTEXT INDEX idx_account_name_fulltext ON tx_header(account_name)');
     }
 
     /**
@@ -29,9 +36,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Drop ngram fulltext index
+        // Drop FULLTEXT index
         try {
-            DB::statement('ALTER TABLE tx_header DROP INDEX idx_account_name_ngram');
+            DB::statement('ALTER TABLE tx_header DROP INDEX idx_account_name_fulltext');
         } catch (\Exception $e) {
             // Index doesn't exist, continue
         }
