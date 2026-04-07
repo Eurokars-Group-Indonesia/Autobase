@@ -619,6 +619,23 @@
         // Handle search form submit
         $('#searchForm').on('submit', function(e) {
             e.preventDefault();
+            
+            // Validation: Check if search field and search value are filled
+            const searchField = $('#search_field').val();
+            const searchValue = $('#search').val().trim();
+            
+            if (!searchField) {
+                alert('Please select a Search Field');
+                $('#search_field').focus();
+                return false;
+            }
+            
+            if (!searchValue) {
+                alert('Please enter a Search value');
+                $('#search').focus();
+                return false;
+            }
+            
             performSearch(1, true, true); // Show clear button after search
         });
 
