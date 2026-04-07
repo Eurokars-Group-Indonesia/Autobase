@@ -97,33 +97,19 @@ class TransactionHeaderController extends Controller
                     $query->where(function($q) use ($search, $userBrandIds, $isDate) {
                         // Search in header fields - already filtered by brand in base query
                         $q->where(function($searchWhere) use ($search, $isDate) {
-                            // Detect if search is specifically a phone number (has phone-specific characters)
-                            // Phone numbers typically have: +, -, spaces, parentheses, or are long (8+ digits)
-                            $hasPhoneChars = preg_match('/[+\-()]/', $search);
-                            $isLongNumber = preg_match('/^\d{8,}$/', $search); // 8+ digits = likely phone
-                            $isPhoneNumber = $hasPhoneChars || $isLongNumber;
+                            // Check if search is pure digits (could be invoice_no, wip_no, phone, or chassis)
+                            $isPureDigits = preg_match('/^\d+$/', $search);
                             
-                            // Check if search is pure digits (could be invoice_no, wip_no, or phone)
-                            $isPureDigits = preg_match('/^\d+$/', $search) && !($isPhoneNumber);
-                            
-                            if ($isPhoneNumber) {
-                                // Use FULLTEXT search with wildcards for phone numbers
-                                // Wildcard matching provides partial matching without NGRAM parser
-                                // Example: "62" will match "6281234567", "081" will match "081234567"
-                                $phoneSearch = $search . '*';
-                                $searchWhere->whereRaw(
-                                    'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
-                                    [$phoneSearch]
-                                );
-                            } elseif ($isPureDigits) {
-                                // Pure digits (short numbers) - search in invoice_no, wip_no, chassis, AND phone numbers
-                                // This handles cases like "3200707", "22657" which could be invoice/wip numbers
+                            if ($isPureDigits) {
+                                // Pure digits - search in invoice_no, wip_no, chassis, account_code, AND phone numbers
+                                // Phone numbers can contain digits like "8954324234 Bernando Torrez"
+                                // This handles cases like "3200707", "22657", "8954324234" which could be invoice/wip/phone numbers
                                 $phoneSearch = $search . '*';
                                 $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
                                             ->orWhere('tx_header.wip_no', 'like', $search . '%')
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.account_code', 'like', $search . '%')
-                                            // Also search in phone numbers (could be partial phone)
+                                            // Also search in phone numbers (could be partial phone number or digits within phone)
                                             ->orWhereRaw(
                                                 'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
                                                 [$phoneSearch]
@@ -136,12 +122,14 @@ class TransactionHeaderController extends Controller
                                 // For text search, use FULLTEXT search without NGRAM parser
                                 // Split search into words and add wildcards for partial word matching
                                 // Example: "ber" will match "Bernando", "bernando torrez" will match "Bernando Torrez Kampang"
+                                // Phone numbers can also contain text like "8954324234 Bernando Torrez"
                                 $words = preg_split('/\s+/', $searchClean);
                                 $fulltextSearch = implode(' ', array_map(function($word) {
                                     return $word . '*';  // Add wildcard for partial word matching
                                 }, $words));
                                 
-                                // Use FULLTEXT search for customer_name and registration_no
+                                // Use FULLTEXT search for customer_name, registration_no, account_name, and phone numbers
+                                // Phone numbers can contain both digits and text, so include them in text search
                                 // BOOLEAN MODE with wildcards allows partial word matching
                                 $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
                                             ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
@@ -150,7 +138,9 @@ class TransactionHeaderController extends Controller
                                             ->orWhere('tx_header.invoice_no', 'like', $search . '%')
                                             ->orWhere('tx_header.wip_no', 'like', $search . '%')
                                             ->orWhere('tx_header.account_code', 'like', $search . '%')
-                                            ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+                                            ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
+                                            // Also search in phone numbers for text/string content
+                                            ->orWhereRaw('MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
                             }
 
                             // Only add date search if format matches
@@ -833,33 +823,19 @@ class TransactionHeaderController extends Controller
                     $query->where(function($q) use ($search, $userBrandIds, $isDate) {
                         // Search in header fields - already filtered by brand in base query
                         $q->where(function($searchWhere) use ($search, $isDate) {
-                            // Detect if search is specifically a phone number (has phone-specific characters)
-                            // Phone numbers typically have: +, -, spaces, parentheses, or are long (8+ digits)
-                            $hasPhoneChars = preg_match('/[+\-()]/', $search);
-                            $isLongNumber = preg_match('/^\d{8,}$/', $search); // 8+ digits = likely phone
-                            $isPhoneNumber = $hasPhoneChars || $isLongNumber;
+                            // Check if search is pure digits (could be invoice_no, wip_no, phone, or chassis)
+                            $isPureDigits = preg_match('/^\d+$/', $search);
                             
-                            // Check if search is pure digits (could be invoice_no, wip_no, or phone)
-                            $isPureDigits = preg_match('/^\d+$/', $search) && !($isPhoneNumber);
-                            
-                            if ($isPhoneNumber) {
-                                // Use FULLTEXT search with wildcards for phone numbers
-                                // Wildcard matching provides partial matching without NGRAM parser
-                                // Example: "62" will match "6281234567", "081" will match "081234567"
-                                $phoneSearch = $search . '*';
-                                $searchWhere->whereRaw(
-                                    'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
-                                    [$phoneSearch]
-                                );
-                            } elseif ($isPureDigits) {
-                                // Pure digits (short numbers) - search in invoice_no, wip_no, chassis, AND phone numbers
-                                // This handles cases like "3200707", "22657" which could be invoice/wip numbers
+                            if ($isPureDigits) {
+                                // Pure digits - search in invoice_no, wip_no, chassis, account_code, AND phone numbers
+                                // Phone numbers can contain digits like "8954324234 Bernando Torrez"
+                                // This handles cases like "3200707", "22657", "8954324234" which could be invoice/wip/phone numbers
                                 $phoneSearch = $search . '*';
                                 $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
                                             ->orWhere('tx_header.wip_no', 'like', $search . '%')
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.account_code', 'like', $search . '%')
-                                            // Also search in phone numbers (could be partial phone)
+                                            // Also search in phone numbers (could be partial phone number or digits within phone)
                                             ->orWhereRaw(
                                                 'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
                                                 [$phoneSearch]
@@ -872,11 +848,14 @@ class TransactionHeaderController extends Controller
                                 // For text search, use FULLTEXT search without NGRAM parser
                                 // Split search into words and add wildcards for partial word matching
                                 // Example: "ber" will match "Bernando", "bernando torrez" will match "Bernando Torrez Kampang"
+                                // Phone numbers can also contain text like "8954324234 Bernando Torrez"
                                 $words = preg_split('/\s+/', $searchClean);
                                 $fulltextSearch = implode(' ', array_map(function($word) {
                                     return $word . '*';  // Add wildcard for partial word matching
                                 }, $words));
                                 
+                                // Use FULLTEXT search for customer_name, registration_no, account_name, and phone numbers
+                                // Phone numbers can contain both digits and text, so include them in text search
                                 $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
                                             ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
                                             ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
@@ -884,7 +863,9 @@ class TransactionHeaderController extends Controller
                                             ->orWhere('tx_header.chassis', 'like', $search . '%')
                                             ->orWhere('tx_header.invoice_no', 'like', $search . '%')
                                             ->orWhere('tx_header.wip_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.account_code', 'like', $search . '%');
+                                            ->orWhere('tx_header.account_code', 'like', $search . '%')
+                                            // Also search in phone numbers for text/string content
+                                            ->orWhereRaw('MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
                                             
                             }
 
