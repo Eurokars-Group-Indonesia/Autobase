@@ -281,13 +281,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Search</label>
-                            <input type="text" class="form-control form-control-sm" name="search" id="search"
-                                   placeholder="Enter search value..."
-                                   value="{{ request('search') }}">
-                        </div>
-                        <div class="col-md-1">
+                        <div class="col-md-2">
                             <label class="form-label">Search Field</label>
                             <select class="form-select form-select-sm" name="search_field" id="search_field">
                                 <option value="">All Fields</option>
@@ -300,6 +294,12 @@
                                 <option value="account_name" {{ request('search_field') == 'account_name' ? 'selected' : '' }}>Account Name</option>
                                 <option value="phone_number" {{ request('search_field') == 'phone_number' ? 'selected' : '' }}>Phone Number</option>
                             </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Search</label>
+                            <input type="text" class="form-control form-control-sm" name="search" id="search"
+                                   placeholder="Enter search value..."
+                                   value="{{ request('search') }}">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Date From</label>

@@ -823,7 +823,7 @@ class TransactionHeaderController extends Controller
         return response()->json([
             'success' => true,
             'hasFilter' => $hasFilter,
-            'html' => view('transactions.partials.table', compact('transactions', 'canViewCostPrice'))->render(),
+            'html' => view('transactions.partials.table', compact('transactions', 'canViewCostPrice', 'hasFilter'))->render(),
             'pagination' => view('transactions.partials.pagination', compact('transactions'))->render()
         ]);
     }
