@@ -1066,7 +1066,7 @@ class TransactionHeaderController extends Controller
         $hasSpaces = strpos($search, ' ') !== false;
         
         if ($hasSpaces) {
-            // Try exact match first (full string)
+            // Has spaces - try exact match first, then partial
             $searchWhere->where($field, '=', $search)
                         ->orWhere(function($q) use ($search, $field) {
                             // Also allow partial word matching

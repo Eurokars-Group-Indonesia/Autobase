@@ -270,7 +270,7 @@
                                 <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
                             </select>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <label class="form-label">POS Code</label>
                             <select class="form-select form-select-sm" name="brand_code" id="brand_code">
                                 <option value="">All POS Code</option>
@@ -301,13 +301,13 @@
                                    placeholder="Enter search value..."
                                    value="{{ request('search') }}">
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <label class="form-label">Date From</label>
                             <input type="text" class="form-control form-control-sm" id="date_from_display"
                                    placeholder="Select date from" readonly>
                             <input type="hidden" name="date_from" id="date_from" value="{{ request('date_from') }}">
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <label class="form-label">Date To</label>
                             <input type="text" class="form-control form-control-sm" id="date_to_display"
                                    placeholder="Select date to" readonly>
