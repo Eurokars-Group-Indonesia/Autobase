@@ -39,24 +39,24 @@ class TransactionHeaderController extends Controller
         // Base query with brand filter
         $query = TransactionHeader::with('brand')
             ->where('tx_header.is_active', '1');
-        
+
         // Apply sorting
         $sortColumn = $request->get('sort_column', 'invoice_date');
         $sortDirection = $request->get('sort_direction', 'desc');
-        
+
         // Validate sort column to prevent SQL injection
         $allowedSortColumns = [
             'invoice_no', 'wip_no', 'invoice_date', 'account_code', 'account_name', 
             'customer_name', 'registration_no', 'chassis', 'document_type',
             'pos_code', 'gross_value', 'net_value'
         ];
-        
+
         if (in_array($sortColumn, $allowedSortColumns)) {
             $query->orderBy('tx_header.' . $sortColumn, $sortDirection);
         } else {
             $query->orderBy('tx_header.invoice_date', 'desc');
         }
-        
+
         // Filter by user's brands or specific brand if selected
         if ($hasBrandFilter) {
             $query->where('tx_header.pos_code', $request->brand_code);
@@ -67,7 +67,7 @@ class TransactionHeaderController extends Controller
                 ->toArray();
             $query->whereIn('tx_header.pos_code', $userBrandCodes);
         }
-        
+
         // Only use cache when there's search/filter (including brand filter for query optimization)
         $shouldUseCache = $hasFilter || $hasBrandFilter;
 
@@ -75,6 +75,7 @@ class TransactionHeaderController extends Controller
             // Generate cache key based on user and search parameters
             $userId = auth()->id();
             $search = $request->get('search', '');
+            $searchField = $request->get('search_field', '');
             $dateFrom = $request->get('date_from', '');
             $dateTo = $request->get('date_to', '');
             $brandCode = $request->get('brand_code', '');
@@ -83,111 +84,34 @@ class TransactionHeaderController extends Controller
             $sortColumn = $request->get('sort_column', 'invoice_date');
             $sortDirection = $request->get('sort_direction', 'desc');
 
-            $cacheKey = "header:{$userId}:{$search}:{$dateFrom}:{$dateTo}:{$brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
+            $cacheKey = "header:{$userId}:{$search}:{$searchField}:{$dateFrom}:{$dateTo}:{$brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
 
             // Try to get from cache (1 hour)
             $transactions = cache()->remember($cacheKey, now()->addHour(), function () use ($request, $query, $userBrandIds) {
                 // Search by text - search in header and body
                 if ($request->has('search') && $request->search != '') {
                     $search = $request->search;
+                    $searchField = $request->get('search_field', '');
 
-                    // Check if search is a date format
-                    $isDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $search);
-
-                    $query->where(function($q) use ($search, $userBrandIds, $isDate) {
-                        // Search in header fields - already filtered by brand in base query
-                        $q->where(function($searchWhere) use ($search, $isDate) {
-                            // Check if search is pure digits (could be invoice_no, wip_no, phone, or chassis)
-                            $isPureDigits = preg_match('/^\d+$/', $search);
-                            
-                            if ($isPureDigits) {
-                                // Pure digits - search in invoice_no, wip_no, chassis, account_code, AND phone numbers
-                                // Phone numbers can contain digits like "8954324234 Bernando Torrez"
-                                // This handles cases like "3200707", "22657", "8954324234" which could be invoice/wip/phone numbers
-                                $phoneSearch = $search . '*';
-                                $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.wip_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.chassis', 'like', $search . '%')
-                                            ->orWhere('tx_header.account_code', 'like', $search . '%')
-                                            // Also search in phone numbers (could be partial phone number or digits within phone)
-                                            ->orWhereRaw(
-                                                'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
-                                                [$phoneSearch]
-                                            );
-                            } else {
-                                // Strip common titles/prefixes from search to improve matching
-                                // Titles like Mr, Mrs, Ms, Dr, etc. will be removed
-                                $searchClean = preg_replace('/^(mr|mrs|ms|miss|dr|prof|sir|madam|lady|lord)\.?\s+/i', '', trim($search));
-                                
-                                // For text search, use FULLTEXT search without NGRAM parser
-                                // Split search into words and add wildcards for partial word matching
-                                // Example: "ber" will match "Bernando", "bernando torrez" will match "Bernando Torrez Kampang"
-                                // Phone numbers can also contain text like "8954324234 Bernando Torrez"
-                                $words = preg_split('/\s+/', $searchClean);
-                                $fulltextSearch = implode(' ', array_map(function($word) {
-                                    return $word . '*';  // Add wildcard for partial word matching
-                                }, $words));
-                                
-                                // Use FULLTEXT search for customer_name, registration_no, account_name, and phone numbers
-                                // Phone numbers can contain both digits and text, so include them in text search
-                                // BOOLEAN MODE with wildcards allows partial word matching
-                                $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
-                                            ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
-                                            // Use prefix LIKE for chassis, invoice_no, wip_no, account_code (uses B-TREE index)
-                                            ->orWhere('tx_header.chassis', 'like', $search . '%')
-                                            ->orWhere('tx_header.invoice_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.wip_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.account_code', 'like', $search . '%')
-                                            ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
-                                            // Also search in phone numbers for text/string content
-                                            ->orWhereRaw('MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
-                            }
-
-                            // Only add date search if format matches
-                            if ($isDate) {
-                                $searchWhere->orWhere('tx_header.invoice_date', '=', $search);
-                            }
-                        })
-                        // Search in body fields using whereExists - optimized with limit
-                        ->orWhereExists(function($existsQuery) use ($search, $isDate) {
-                            $existsQuery->select(\DB::raw(1))
-                                        ->from('tx_body')
-                                        ->whereColumn('tx_body.wip_no', 'tx_header.wip_no')
-                                        ->whereColumn('tx_body.invoice_no', 'tx_header.invoice_no')
-                                        ->whereColumn('tx_body.magic_2', 'tx_header.magic_id')
-                                        ->whereColumn('tx_body.pos_code', 'tx_header.pos_code')
-                                        ->where('tx_body.is_active', '1')
-                                        ->where(function($bodyWhere) use ($search, $isDate) {
-                                            $bodyWhere->where('tx_body.part_no', 'like', $search . '%')
-                                                      ->orWhere('tx_body.wip_no', 'like', $search . '%')
-                                                      ->orWhere('tx_body.invoice_no', 'like', $search . '%');
-                                            
-                                            // Only add date search if format matches
-                                            if ($isDate) {
-                                                $bodyWhere->orWhere('tx_body.date_decard', '=', $search);
-                                            }
-                                        })
-                                        ->limit(1); // Stop at first match for EXISTS
-                        });
-                    });
+                    $this->applySearchFilter($query, $search, $searchField);
                 }
 
                 // Filter by date range - use direct comparison instead of whereDate for better index usage
                 if ($request->has('date_from') && $request->date_from != '') {
                     $query->where('tx_header.invoice_date', '>=', $request->date_from);
                 }
-                
+
                 if ($request->has('date_to') && $request->date_to != '') {
                     $query->where('tx_header.invoice_date', '<=', $request->date_to);
                 }
-                
+
                 // Pagination
                 $perPage = $request->get('per_page', 20);
                 $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
 
                 return $query->paginate($perPageValue)->withQueryString();
             });
-            
+
             // Manually load bodies for each transaction using optimized batch query
             if ($transactions->count() > 0) {
                 // Build WHERE IN conditions for better performance than CONCAT
@@ -195,7 +119,7 @@ class TransactionHeaderController extends Controller
                 $invoiceNos = $transactions->pluck('invoice_no')->unique()->toArray();
                 $posCodes = $transactions->pluck('pos_code')->unique()->toArray();
                 $magicIds = $transactions->pluck('magic_id')->unique()->toArray();
-                
+
                 // Fetch all bodies at once with optimized query
                 $allBodies = \DB::table('tx_body')
                     ->select('pos_code', 'wip_no', 'invoice_no', 'magic_2', 'line', 'part_no', 'description', 
@@ -211,12 +135,12 @@ class TransactionHeaderController extends Controller
                     ->groupBy(function($body) {
                         return $body->pos_code . '|' . $body->wip_no . '|' . $body->invoice_no . '|' . $body->magic_2;
                     });
-                
+
                 // Assign bodies to each transaction
                 foreach ($transactions as $transaction) {
                     $key = $transaction->pos_code . '|' . $transaction->wip_no . '|' . $transaction->invoice_no . '|' . $transaction->magic_id;
                     $bodies = $allBodies->get($key, collect());
-                    
+
                     // Direct assignment without model conversion for better performance
                     $transaction->bodies = $bodies;
                 }
@@ -227,11 +151,11 @@ class TransactionHeaderController extends Controller
             $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
             $transactions = $query->paginate($perPageValue)->withQueryString();
         }
-        
+
         // Calculate execution time
         $endTime = microtime(true);
         $executionTime = ($endTime - $startTime) * 1000;
-        
+
         // Log search history asynchronously only if there's a search query or date filter
         if ($hasFilter) {
             LogSearchHistory::dispatch(
@@ -243,7 +167,7 @@ class TransactionHeaderController extends Controller
                 'H'
             );
         }
-        
+
         // Return view without transactions data - will be loaded via AJAX
         $canViewCostPrice = auth()->user()->hasPermission('cost.price.view');
         return view('transactions.index', compact('brands', 'canViewCostPrice'));
@@ -751,32 +675,32 @@ class TransactionHeaderController extends Controller
     {
         // Start timing
         $startTime = microtime(true);
-        
+
         // Get user's brand IDs (realtime query)
         $userBrandIds = auth()->user()->getBrandIds();
-        
+
         // Check if there's any search/filter parameter
         $hasSearch = $request->has('search') && $request->search != '';
         $hasDateFrom = $request->has('date_from') && $request->date_from != '';
         $hasDateTo = $request->has('date_to') && $request->date_to != '';
         $hasBrandFilter = $request->has('brand_code') && $request->brand_code != '';
         $hasFilter = $hasSearch || $hasDateFrom || $hasDateTo;
-        
+
         // Base query with brand filter
         $query = TransactionHeader::with('brand')
             ->where('tx_header.is_active', '1');
-        
+
         // Apply sorting
         $sortColumn = $request->get('sort_column', 'invoice_date');
         $sortDirection = $request->get('sort_direction', 'desc');
-        
+
         // Validate sort column to prevent SQL injection
         $allowedSortColumns = [
             'invoice_no', 'wip_no', 'invoice_date', 'account_code', 'account_name', 
             'customer_name', 'registration_no', 'chassis', 'document_type',
             'pos_code', 'gross_value', 'net_value'
         ];
-        
+
         if (in_array($sortColumn, $allowedSortColumns)) {
             $query->orderBy('tx_header.' . $sortColumn, $sortDirection);
         } else {
@@ -793,7 +717,7 @@ class TransactionHeaderController extends Controller
                 ->toArray();
             $query->whereIn('tx_header.pos_code', $userBrandCodes);
         }
-        
+
         // Only use cache when there's search/filter (including brand filter for query optimization)
         $shouldUseCache = $hasFilter || $hasBrandFilter;
 
@@ -801,6 +725,7 @@ class TransactionHeaderController extends Controller
             // Generate cache key based on user and search parameters
             $userId = auth()->id();
             $search = $request->get('search', '');
+            $searchField = $request->get('search_field', '');
             $dateFrom = $request->get('date_from', '');
             $dateTo = $request->get('date_to', '');
             $brandCode = $request->get('brand_code', '');
@@ -809,111 +734,34 @@ class TransactionHeaderController extends Controller
             $sortColumn = $request->get('sort_column', 'invoice_date');
             $sortDirection = $request->get('sort_direction', 'desc');
 
-            $cacheKey = "header:{$userId}:{$search}:{$dateFrom}:{$dateTo}:{$brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
+            $cacheKey = "header:{$userId}:{$search}:{$searchField}:{$dateFrom}:{$dateTo}:{$brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
 
             // Try to get from cache (1 hour)
             $transactions = cache()->remember($cacheKey, now()->addHour(), function () use ($request, $query, $userBrandIds) {
                 // Search by text - search in header and body
                 if ($request->has('search') && $request->search != '') {
                     $search = $request->search;
+                    $searchField = $request->get('search_field', '');
 
-                    // Check if search is a date format
-                    $isDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $search);
-
-                    $query->where(function($q) use ($search, $userBrandIds, $isDate) {
-                        // Search in header fields - already filtered by brand in base query
-                        $q->where(function($searchWhere) use ($search, $isDate) {
-                            // Check if search is pure digits (could be invoice_no, wip_no, phone, or chassis)
-                            $isPureDigits = preg_match('/^\d+$/', $search);
-                            
-                            if ($isPureDigits) {
-                                // Pure digits - search in invoice_no, wip_no, chassis, account_code, AND phone numbers
-                                // Phone numbers can contain digits like "8954324234 Bernando Torrez"
-                                // This handles cases like "3200707", "22657", "8954324234" which could be invoice/wip/phone numbers
-                                $phoneSearch = $search . '*';
-                                $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.wip_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.chassis', 'like', $search . '%')
-                                            ->orWhere('tx_header.account_code', 'like', $search . '%')
-                                            // Also search in phone numbers (could be partial phone number or digits within phone)
-                                            ->orWhereRaw(
-                                                'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
-                                                [$phoneSearch]
-                                            );
-                            } else {
-                                // Strip common titles/prefixes from search to improve matching
-                                // Titles like Mr, Mrs, Ms, Dr, etc. will be removed
-                                $searchClean = preg_replace('/^(mr|mrs|ms|miss|dr|prof|sir|madam|lady|lord)\.?\s+/i', '', trim($search));
-                                
-                                // For text search, use FULLTEXT search without NGRAM parser
-                                // Split search into words and add wildcards for partial word matching
-                                // Example: "ber" will match "Bernando", "bernando torrez" will match "Bernando Torrez Kampang"
-                                // Phone numbers can also contain text like "8954324234 Bernando Torrez"
-                                $words = preg_split('/\s+/', $searchClean);
-                                $fulltextSearch = implode(' ', array_map(function($word) {
-                                    return $word . '*';  // Add wildcard for partial word matching
-                                }, $words));
-                                
-                                // Use FULLTEXT search for customer_name, registration_no, account_name, and phone numbers
-                                // Phone numbers can contain both digits and text, so include them in text search
-                                $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
-                                            ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
-                                            ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
-                                            // Use prefix LIKE for chassis, invoice_no, wip_no, account_code
-                                            ->orWhere('tx_header.chassis', 'like', $search . '%')
-                                            ->orWhere('tx_header.invoice_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.wip_no', 'like', $search . '%')
-                                            ->orWhere('tx_header.account_code', 'like', $search . '%')
-                                            // Also search in phone numbers for text/string content
-                                            ->orWhereRaw('MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
-                                            
-                            }
-
-                            // Only add date search if format matches
-                            if ($isDate) {
-                                $searchWhere->orWhere('tx_header.invoice_date', '=', $search);
-                            }
-                        })
-                        // Search in body fields using whereExists - optimized with limit
-                        ->orWhereExists(function($existsQuery) use ($search, $isDate) {
-                            $existsQuery->select(\DB::raw(1))
-                                        ->from('tx_body')
-                                        ->whereColumn('tx_body.wip_no', 'tx_header.wip_no')
-                                        ->whereColumn('tx_body.invoice_no', 'tx_header.invoice_no')
-                                        ->whereColumn('tx_body.magic_2', 'tx_header.magic_id')
-                                        ->whereColumn('tx_body.pos_code', 'tx_header.pos_code')
-                                        ->where('tx_body.is_active', '1')
-                                        ->where(function($bodyWhere) use ($search, $isDate) {
-                                            $bodyWhere->where('tx_body.part_no', 'like', $search . '%')
-                                                      ->orWhere('tx_body.wip_no', 'like', $search . '%')
-                                                      ->orWhere('tx_body.invoice_no', 'like', $search . '%');
-                                            
-                                            // Only add date search if format matches
-                                            if ($isDate) {
-                                                $bodyWhere->orWhere('tx_body.date_decard', '=', $search);
-                                            }
-                                        })
-                                        ->limit(1); // Stop at first match for EXISTS
-                        });
-                    });
+                    $this->applySearchFilter($query, $search, $searchField);
                 }
 
                 // Filter by date range - use direct comparison instead of whereDate for better index usage
                 if ($request->has('date_from') && $request->date_from != '') {
                     $query->where('tx_header.invoice_date', '>=', $request->date_from);
                 }
-                
+
                 if ($request->has('date_to') && $request->date_to != '') {
                     $query->where('tx_header.invoice_date', '<=', $request->date_to);
                 }
-                
+
                 // Pagination
                 $perPage = $request->get('per_page', 20);
                 $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
 
                 return $query->paginate($perPageValue)->withQueryString();
             });
-            
+
             // Manually load bodies for each transaction using optimized batch query
             if ($transactions->count() > 0) {
                 // Build WHERE IN conditions for better performance than CONCAT
@@ -921,7 +769,7 @@ class TransactionHeaderController extends Controller
                 $invoiceNos = $transactions->pluck('invoice_no')->unique()->toArray();
                 $posCodes = $transactions->pluck('pos_code')->unique()->toArray();
                 $magicIds = $transactions->pluck('magic_id')->unique()->toArray();
-                
+
                 // Fetch all bodies at once with optimized query
                 $allBodies = \DB::table('tx_body')
                     ->select('pos_code', 'wip_no', 'invoice_no', 'magic_2', 'line', 'part_no', 'description', 
@@ -937,12 +785,12 @@ class TransactionHeaderController extends Controller
                     ->groupBy(function($body) {
                         return $body->pos_code . '|' . $body->wip_no . '|' . $body->invoice_no . '|' . $body->magic_2;
                     });
-                
+
                 // Assign bodies to each transaction
                 foreach ($transactions as $transaction) {
                     $key = $transaction->pos_code . '|' . $transaction->wip_no . '|' . $transaction->invoice_no . '|' . $transaction->magic_id;
                     $bodies = $allBodies->get($key, collect());
-                    
+
                     // Direct assignment without model conversion for better performance
                     $transaction->bodies = $bodies;
                 }
@@ -953,11 +801,11 @@ class TransactionHeaderController extends Controller
             $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
             $transactions = $query->paginate($perPageValue)->withQueryString();
         }
-        
+
         // Calculate execution time
         $endTime = microtime(true);
         $executionTime = ($endTime - $startTime) * 1000;
-        
+
         // Log search history asynchronously only if there's a search query or date filter
         if ($hasFilter) {
             LogSearchHistory::dispatch(
@@ -969,13 +817,13 @@ class TransactionHeaderController extends Controller
                 'H'
             );
         }
-        
+
         // Return JSON response for AJAX
         $canViewCostPrice = auth()->user()->hasPermission('cost.price.view');
         return response()->json([
             'success' => true,
             'hasFilter' => $hasFilter,
-            'html' => view('transactions.partials.table', compact('transactions', 'hasFilter', 'canViewCostPrice'))->render(),
+            'html' => view('transactions.partials.table', compact('transactions', 'canViewCostPrice'))->render(),
             'pagination' => view('transactions.partials.pagination', compact('transactions'))->render()
         ]);
     }
@@ -1051,6 +899,7 @@ class TransactionHeaderController extends Controller
     public function export(Request $request)
     {
         $search = $request->get('search');
+        $searchField = $request->get('search_field', '');
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
         $brandCode = $request->get('brand_code');
@@ -1076,9 +925,210 @@ class TransactionHeaderController extends Controller
 
         // Export with body details and brand filter
         return Excel::download(
-            new TransactionHeaderExport($search, $dateFrom, $dateTo, $userBrandCodes, $brandCode),
+            new TransactionHeaderExport($search, $dateFrom, $dateTo, $userBrandCodes, $brandCode, $searchField),
             $filename
         );
     }
+
+    /**
+     * Apply search filter based on search_field parameter
+     * Supports specific field search or all fields search
+     */
+    private function applySearchFilter(&$query, $search, $searchField = '')
+    {
+        if (empty($search)) {
+            return;
+        }
+
+        // Check if search is a date format
+        $isDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $search);
+        $isPureDigits = preg_match('/^\d+$/', $search);
+
+        $query->where(function($q) use ($search, $searchField, $isDate, $isPureDigits) {
+            // Search in header fields
+            $q->where(function($searchWhere) use ($search, $searchField, $isDate, $isPureDigits) {
+                // If specific field is selected
+                if (!empty($searchField)) {
+                    $this->applyFieldSpecificSearch($searchWhere, $search, $searchField, $isPureDigits);
+                } else {
+                    // Search all fields (original logic)
+                    $this->applyAllFieldsSearch($searchWhere, $search, $isPureDigits);
+                }
+
+                // Only add date search if format matches
+                if ($isDate) {
+                    $searchWhere->orWhere('tx_header.invoice_date', '=', $search);
+                }
+            })
+            // Search in body fields using whereExists - optimized with limit
+            ->orWhereExists(function($existsQuery) use ($search, $isDate) {
+                $existsQuery->select(\DB::raw(1))
+                            ->from('tx_body')
+                            ->whereColumn('tx_body.wip_no', 'tx_header.wip_no')
+                            ->whereColumn('tx_body.invoice_no', 'tx_header.invoice_no')
+                            ->whereColumn('tx_body.magic_2', 'tx_header.magic_id')
+                            ->whereColumn('tx_body.pos_code', 'tx_header.pos_code')
+                            ->where('tx_body.is_active', '1')
+                            ->where(function($bodyWhere) use ($search, $isDate) {
+                                $bodyWhere->where('tx_body.part_no', 'like', $search . '%')
+                                          ->orWhere('tx_body.wip_no', 'like', $search . '%')
+                                          ->orWhere('tx_body.invoice_no', 'like', $search . '%');
+                                
+                                // Only add date search if format matches
+                                if ($isDate) {
+                                    $bodyWhere->orWhere('tx_body.date_decard', '=', $search);
+                                }
+                            })
+                            ->limit(1);
+            });
+        });
+    }
+
+    /**
+     * Apply search for specific field
+     */
+    private function applyFieldSpecificSearch(&$searchWhere, $search, $searchField, $isPureDigits)
+    {
+        switch ($searchField) {
+            case 'customer_name':
+                $this->applyTextSearch($searchWhere, $search, 'tx_header.customer_name');
+                break;
+            case 'registration_no':
+                $this->applyTextSearch($searchWhere, $search, 'tx_header.registration_no');
+                break;
+            case 'chassis':
+                $searchWhere->where('tx_header.chassis', 'like', $search . '%');
+                break;
+            case 'invoice_no':
+                $searchWhere->where('tx_header.invoice_no', 'like', $search . '%');
+                break;
+            case 'wip_no':
+                $searchWhere->where('tx_header.wip_no', 'like', $search . '%');
+                break;
+            case 'account_code':
+                $searchWhere->where('tx_header.account_code', 'like', $search . '%');
+                break;
+            case 'account_name':
+                $this->applyTextSearch($searchWhere, $search, 'tx_header.account_name');
+                break;
+            case 'phone_number':
+                $this->applyPhoneNumberSearch($searchWhere, $search, $isPureDigits);
+                break;
+        }
+    }
+
+    /**
+     * Apply search for all fields (original logic)
+     */
+    private function applyAllFieldsSearch(&$searchWhere, $search, $isPureDigits)
+    {
+        if ($isPureDigits) {
+            // Pure digits - search in invoice_no, wip_no, chassis, account_code, AND phone numbers
+            $phoneSearch = $search . '*';
+            $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
+                        ->orWhere('tx_header.wip_no', 'like', $search . '%')
+                        ->orWhere('tx_header.chassis', 'like', $search . '%')
+                        ->orWhere('tx_header.account_code', 'like', $search . '%')
+                        ->orWhereRaw(
+                            'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
+                            [$phoneSearch]
+                        );
+        } else {
+            // Strip common titles/prefixes from search to improve matching
+            $searchClean = preg_replace('/^(mr|mrs|ms|miss|dr|prof|sir|madam|lady|lord)\.?\s+/i', '', trim($search));
+            
+            // For text search, use FULLTEXT search without NGRAM parser
+            $words = preg_split('/\s+/', $searchClean);
+            $fulltextSearch = implode(' ', array_map(function($word) {
+                return $word . '*';
+            }, $words));
+            
+            // Use FULLTEXT search for customer_name, registration_no, account_name, and phone numbers
+            $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
+                        ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
+                        ->orWhere('tx_header.chassis', 'like', $search . '%')
+                        ->orWhere('tx_header.invoice_no', 'like', $search . '%')
+                        ->orWhere('tx_header.wip_no', 'like', $search . '%')
+                        ->orWhere('tx_header.account_code', 'like', $search . '%')
+                        ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
+                        ->orWhereRaw('MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+        }
+    }
+
+    /**
+     * Apply text search with FULLTEXT and partial/full string matching
+     * Partial: "ber" matches "Bernando"
+     * Full: "Bernando Torrez" matches exactly "Bernando Torrez"
+     */
+    private function applyTextSearch(&$searchWhere, $search, $field)
+    {
+        // Check if search contains spaces (potential full string match)
+        $hasSpaces = strpos($search, ' ') !== false;
+        
+        if ($hasSpaces) {
+            // Try exact match first (full string)
+            $searchWhere->where($field, '=', $search)
+                        ->orWhere(function($q) use ($search, $field) {
+                            // Also allow partial word matching
+                            $words = preg_split('/\s+/', trim($search));
+                            $fulltextSearch = implode(' ', array_map(function($word) {
+                                return $word . '*';
+                            }, $words));
+                            $q->whereRaw('MATCH(' . $field . ') AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+                        });
+        } else {
+            // Single word - use FULLTEXT with wildcard for partial matching
+            $fulltextSearch = $search . '*';
+            $searchWhere->whereRaw('MATCH(' . $field . ') AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+        }
+    }
+
+    /**
+     * Apply phone number search with special logic
+     * Partial digits: "62" matches "6281234567 Bernando"
+     * Partial text: "Bernando" matches "6281234567 Bernando Torrez"
+     * Full string: "6281234567 Bernando Torrez" matches exactly
+     */
+    private function applyPhoneNumberSearch(&$searchWhere, $search, $isPureDigits)
+    {
+        $hasSpaces = strpos($search, ' ') !== false;
+        
+        if ($isPureDigits) {
+            // Pure digits - search for partial digit match
+            $phoneSearch = $search . '*';
+            $searchWhere->whereRaw(
+                'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
+                [$phoneSearch]
+            );
+        } elseif ($hasSpaces) {
+            // Has spaces - try exact match first, then partial
+            $searchWhere->where(function($q) use ($search) {
+                // Exact match across all phone fields
+                $q->where('phone_number_1', '=', $search)
+                  ->orWhere('phone_number_2', '=', $search)
+                  ->orWhere('phone_number_3', '=', $search)
+                  ->orWhere('phone_number_4', '=', $search);
+            })
+            ->orWhere(function($q) use ($search) {
+                // Partial match with FULLTEXT
+                $words = preg_split('/\s+/', trim($search));
+                $fulltextSearch = implode(' ', array_map(function($word) {
+                    return $word . '*';
+                }, $words));
+                $q->whereRaw(
+                    'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
+                    [$fulltextSearch]
+                );
+            });
+        } else {
+            // Single word/text - use FULLTEXT with wildcard
+            $fulltextSearch = $search . '*';
+            $searchWhere->whereRaw(
+                'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
+                [$fulltextSearch]
+            );
+        }
+    }
 }
+
 

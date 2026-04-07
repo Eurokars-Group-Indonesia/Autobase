@@ -284,8 +284,22 @@
                         <div class="col-md-3">
                             <label class="form-label">Search</label>
                             <input type="text" class="form-control form-control-sm" name="search" id="search"
-                                   placeholder="Customer, Chassis, Invoice, WIP, Phone, Reg No..."
+                                   placeholder="Enter search value..."
                                    value="{{ request('search') }}">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Search Field</label>
+                            <select class="form-select form-select-sm" name="search_field" id="search_field">
+                                <option value="">All Fields</option>
+                                <option value="customer_name" {{ request('search_field') == 'customer_name' ? 'selected' : '' }}>Customer Name</option>
+                                <option value="registration_no" {{ request('search_field') == 'registration_no' ? 'selected' : '' }}>Registration No</option>
+                                <option value="chassis" {{ request('search_field') == 'chassis' ? 'selected' : '' }}>Chassis</option>
+                                <option value="invoice_no" {{ request('search_field') == 'invoice_no' ? 'selected' : '' }}>Invoice No</option>
+                                <option value="wip_no" {{ request('search_field') == 'wip_no' ? 'selected' : '' }}>WIP No</option>
+                                <option value="account_code" {{ request('search_field') == 'account_code' ? 'selected' : '' }}>Account Code</option>
+                                <option value="account_name" {{ request('search_field') == 'account_name' ? 'selected' : '' }}>Account Name</option>
+                                <option value="phone_number" {{ request('search_field') == 'phone_number' ? 'selected' : '' }}>Phone Number</option>
+                            </select>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Date From</label>
@@ -472,6 +486,7 @@
         function performSearch(page = 1, updateUrl = true, showClearButton = false) {
             const formData = {
                 search: $('#search').val(),
+                search_field: $('#search_field').val(),
                 date_from: $('#date_from').val(),
                 date_to: $('#date_to').val(),
                 brand_code: $('#brand_code').val(),
