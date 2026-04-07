@@ -960,7 +960,7 @@ class TransactionHeaderController extends Controller
                     $searchWhere->orWhere('tx_header.invoice_date', '=', $search);
                 }
             })
-            // Search in body fields using whereExists - optimized with limit
+            // Search in body fields using whereExists - optimized with limit (always included)
             ->orWhereExists(function($existsQuery) use ($search, $isDate) {
                 $existsQuery->select(\DB::raw(1))
                             ->from('tx_body')
