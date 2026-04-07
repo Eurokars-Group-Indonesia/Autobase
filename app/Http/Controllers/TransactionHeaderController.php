@@ -1035,10 +1035,11 @@ class TransactionHeaderController extends Controller
                         );
         } else {
             // Strip common titles/prefixes from search to improve matching
-            $searchClean = preg_replace('/^(mr|mrs|ms|miss|dr|prof|sir|madam|lady|lord)\.?\s+/i', '', trim($search));
+            // $searchClean = preg_replace('/^(mr|mrs|ms|miss|dr|prof|sir|madam|lady|lord)\.?\s+/i', '', trim($search));
             
             // For text search, use FULLTEXT search without NGRAM parser
-            $words = preg_split('/\s+/', $searchClean);
+            // $words = preg_split('/\s+/', $searchClean);
+            $words = trim($search);
             $fulltextSearch = implode(' ', array_map(function($word) {
                 return $word . '*';
             }, $words));
@@ -1058,7 +1059,7 @@ class TransactionHeaderController extends Controller
     /**
      * Apply text search with FULLTEXT and partial/full string matching
      * Partial: "ber" matches "Bernando"
-     * Full: "Bernando Torrez" matches exactly "Bernando Torrez"
+     * Full: "Bernando Torrez" matches exactly "Bernando Torrez" only
      */
     private function applyTextSearch(&$searchWhere, $search, $field)
     {
@@ -1066,16 +1067,8 @@ class TransactionHeaderController extends Controller
         $hasSpaces = strpos($search, ' ') !== false;
         
         if ($hasSpaces) {
-            // Has spaces - try exact match first, then partial
-            $searchWhere->where($field, '=', $search)
-                        ->orWhere(function($q) use ($search, $field) {
-                            // Also allow partial word matching
-                            $words = preg_split('/\s+/', trim($search));
-                            $fulltextSearch = implode(' ', array_map(function($word) {
-                                return $word . '*';
-                            }, $words));
-                            $q->whereRaw('MATCH(' . $field . ') AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
-                        });
+            // Has spaces - use exact match only (no partial matching)
+            $searchWhere->where($field, '=', $search);
         } else {
             // Single word - use FULLTEXT with wildcard for partial matching
             $fulltextSearch = $search . '*';

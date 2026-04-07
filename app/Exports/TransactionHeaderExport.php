@@ -477,6 +477,8 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
 
     /**
      * Apply text search with FULLTEXT and partial/full string matching
+     * Partial: "ber" matches "Bernando"
+     * Full: "Bernando Torrez" matches exactly "Bernando Torrez" only
      */
     private function applyTextSearch(&$searchWhere, $search, $field)
     {
@@ -484,16 +486,8 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
         $hasSpaces = strpos($search, ' ') !== false;
         
         if ($hasSpaces) {
-            // Has spaces - try exact match first, then partial
-            $searchWhere->where($field, '=', $search)
-                        ->orWhere(function($q) use ($search, $field) {
-                            // Also allow partial word matching
-                            $words = preg_split('/\s+/', trim($search));
-                            $fulltextSearch = implode(' ', array_map(function($word) {
-                                return $word . '*';
-                            }, $words));
-                            $q->whereRaw('MATCH(' . $field . ') AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
-                        });
+            // Has spaces - use exact match only (no partial matching)
+            $searchWhere->where($field, '=', $search);
         } else {
             // Single word - use FULLTEXT with wildcard for partial matching
             $fulltextSearch = $search . '*';
