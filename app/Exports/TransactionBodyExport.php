@@ -156,7 +156,7 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
                 $query->where('tx_body.part_no', 'like', $search . '%');
                 break;
             case 'description':
-                $query->where('tx_body.description', 'like', $search . '%');
+                $this->applyTextSearch($query, $search, 'tx_body.description');
                 break;
             case 'invoice_no':
                 $query->where('tx_body.invoice_no', 'like', $search . '%');
@@ -205,6 +205,29 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
             ->orWhere('tx_body.wip_no', 'like', $search . '%')
             ->orWhere('tx_body.operator_name', 'like', $search . '%');
         });
+    }
+    private function applyTextSearch(&$query, $search, $field)
+    {
+        // Check if search contains spaces (potential full string match)
+        $hasSpaces = strpos($search, ' ') !== false;
+
+        if ($hasSpaces) {
+            // Has spaces - try exact phrase first, then strict AND matching
+            $query->where($field, '=', $search)
+                  ->orWhere(function($q) use ($search, $field) {
+                      // Strict AND matching: all words must be present
+                      // Use + prefix with * wildcard: +word1* +word2* +word3*
+                      $words = preg_split('/\s+/', trim($search));
+                      $fulltextSearch = implode(' ', array_map(function($word) {
+                          return '+' . $word . '*';
+                      }, $words));
+                      $q->whereRaw('MATCH(' . $field . ') AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+                  });
+        } else {
+            // Single word - use FULLTEXT with wildcard for partial matching
+            $fulltextSearch = '+' . $search . '*';
+            $query->whereRaw('MATCH(' . $field . ') AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+        }
     }
 
     public function styles(Worksheet $sheet)
