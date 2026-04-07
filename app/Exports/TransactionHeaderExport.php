@@ -161,7 +161,8 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
                 'Discount %',
                 'Extended Price',
                 'Part/Labour',
-                '', '', '', '', '', '', ''
+                'Operator Name',
+                '', '', '', '', '', ''
             ]);
             
             $rows->push($bodyHeaders);
@@ -188,7 +189,8 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
                         $body->discount,
                         $body->extended_price,
                         $body->part_or_labour === 'P' ? 'Part' : 'Labour',
-                        '', '', '', '', '', '', ''
+                        $body->operator_name,
+                        '', '', '', '', '', ''
                     ]);
                     
                     $rows->push($bodyRow);

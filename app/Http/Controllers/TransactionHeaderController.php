@@ -777,7 +777,8 @@ class TransactionHeaderController extends Controller
                 $allBodies = \DB::table('tx_body')
                     ->select('pos_code', 'wip_no', 'invoice_no', 'magic_2', 'line', 'part_no', 'description', 
                              'qty', 'cost_price', 'selling_price', 'discount', 'extended_price', 'date_decard', 'body_id',
-                             'account_code', 'department', 'invoice_status', 'unit', 'part_or_labour', 'vat', 'analysis_code')
+                             'account_code', 'department', 'invoice_status', 'unit', 'part_or_labour', 'vat', 'analysis_code',
+                             'operator_name')
                     ->where('is_active', '1')
                     ->whereIn('wip_no', $wipNos)
                     ->whereIn('invoice_no', $invoiceNos)
