@@ -684,7 +684,10 @@ class TransactionHeaderController extends Controller
         $hasDateFrom = $request->has('date_from') && $request->date_from != '';
         $hasDateTo = $request->has('date_to') && $request->date_to != '';
         $hasBrandFilter = $request->has('brand_code') && $request->brand_code != '';
-        $hasFilter = $hasSearch || $hasDateFrom || $hasDateTo;
+        // Treat brand filter as a search for display purposes
+        $hasFilter = $hasSearch || $hasDateFrom || $hasDateTo || $hasBrandFilter;
+        // Check if it's ONLY brand filter (no search/date filters)
+        $isBrandFilterOnly = $hasBrandFilter && !$hasSearch && !$hasDateFrom && !$hasDateTo;
 
         // Base query with brand filter
         $query = TransactionHeader::with('brand')
@@ -823,7 +826,8 @@ class TransactionHeaderController extends Controller
         return response()->json([
             'success' => true,
             'hasFilter' => $hasFilter,
-            'html' => view('transactions.partials.table', compact('transactions', 'canViewCostPrice', 'hasFilter'))->render(),
+            'isBrandFilterOnly' => $isBrandFilterOnly,
+            'html' => view('transactions.partials.table', compact('transactions', 'canViewCostPrice', 'hasFilter', 'isBrandFilterOnly'))->render(),
             'pagination' => view('transactions.partials.pagination', compact('transactions'))->render()
         ]);
     }
@@ -904,13 +908,13 @@ class TransactionHeaderController extends Controller
         $dateTo = $request->get('date_to');
         $brandCode = $request->get('brand_code');
 
-        // Check if there's any filter (search or date, not just brand)
-        $hasFilter = !empty($search) || !empty($dateFrom) || !empty($dateTo);
+        // Check if there's any filter (search, date, or brand)
+        $hasFilter = !empty($search) || !empty($dateFrom) || !empty($dateTo) || !empty($brandCode);
 
-        // Only allow export when there's search or date filter
+        // Only allow export when there's a filter
         if (!$hasFilter) {
             return redirect()->route('transactions.index')
-                ->with('error', 'Please apply search or date filter before exporting.');
+                ->with('error', 'Please apply a filter before exporting.');
         }
 
         // Get user's brand IDs (realtime query)
@@ -972,7 +976,8 @@ class TransactionHeaderController extends Controller
                             ->where(function($bodyWhere) use ($search, $isDate) {
                                 $bodyWhere->where('tx_body.part_no', 'like', $search . '%')
                                           ->orWhere('tx_body.wip_no', 'like', $search . '%')
-                                          ->orWhere('tx_body.invoice_no', 'like', $search . '%');
+                                          ->orWhere('tx_body.invoice_no', 'like', $search . '%')
+                                          ->orWhere('tx_body.operator_name', 'like', $search . '%');
                                 
                                 // Only add date search if format matches
                                 if ($isDate) {
@@ -1024,7 +1029,7 @@ class TransactionHeaderController extends Controller
     {
         if ($isPureDigits) {
             // Pure digits - search in invoice_no, wip_no, chassis, account_code, AND phone numbers
-            $phoneSearch = $search . '*';
+            $phoneSearch = '+' . $search . '*';
             $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
                         ->orWhere('tx_header.wip_no', 'like', $search . '%')
                         ->orWhere('tx_header.chassis', 'like', $search . '%')
@@ -1034,14 +1039,10 @@ class TransactionHeaderController extends Controller
                             [$phoneSearch]
                         );
         } else {
-            // Strip common titles/prefixes from search to improve matching
-            // $searchClean = preg_replace('/^(mr|mrs|ms|miss|dr|prof|sir|madam|lady|lord)\.?\s+/i', '', trim($search));
-            
-            // For text search, use FULLTEXT search without NGRAM parser
-            // $words = preg_split('/\s+/', $searchClean);
-            $words = trim($search);
+            // For text search, use strict FULLTEXT search with + prefix and * wildcard
+            $words = preg_split('/\s+/', trim($search));
             $fulltextSearch = implode(' ', array_map(function($word) {
-                return $word . '*';
+                return '+' . $word . '*';
             }, $words));
             
             // Use FULLTEXT search for customer_name, registration_no, account_name, and phone numbers
@@ -1060,6 +1061,7 @@ class TransactionHeaderController extends Controller
      * Apply text search with FULLTEXT and partial/full string matching
      * Partial: "ber" matches "Bernando"
      * Full: "Bernando Torrez" matches exactly "Bernando Torrez" only
+     * Partial multi-word: "Takahashi Mitsuko" matches "Ms Takahashi Mitsuko"
      */
     private function applyTextSearch(&$searchWhere, $search, $field)
     {
@@ -1067,11 +1069,20 @@ class TransactionHeaderController extends Controller
         $hasSpaces = strpos($search, ' ') !== false;
         
         if ($hasSpaces) {
-            // Has spaces - use exact match only (no partial matching)
-            $searchWhere->where($field, '=', $search);
+            // Has spaces - try exact phrase first, then strict AND matching
+            $searchWhere->where($field, '=', $search)
+                        ->orWhere(function($q) use ($search, $field) {
+                            // Strict AND matching: all words must be present
+                            // Use + prefix with * wildcard: +word1* +word2* +word3*
+                            $words = preg_split('/\s+/', trim($search));
+                            $fulltextSearch = implode(' ', array_map(function($word) {
+                                return '+' . $word . '*';
+                            }, $words));
+                            $q->whereRaw('MATCH(' . $field . ') AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+                        });
         } else {
             // Single word - use FULLTEXT with wildcard for partial matching
-            $fulltextSearch = $search . '*';
+            $fulltextSearch = '+' . $search . '*';
             $searchWhere->whereRaw('MATCH(' . $field . ') AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
         }
     }
@@ -1088,13 +1099,13 @@ class TransactionHeaderController extends Controller
         
         if ($isPureDigits) {
             // Pure digits - search for partial digit match
-            $phoneSearch = $search . '*';
+            $phoneSearch = '+' . $search . '*';
             $searchWhere->whereRaw(
                 'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
                 [$phoneSearch]
             );
         } elseif ($hasSpaces) {
-            // Has spaces - try exact match first, then partial
+            // Has spaces - try exact match first, then strict AND matching
             $searchWhere->where(function($q) use ($search) {
                 // Exact match across all phone fields
                 $q->where('phone_number_1', '=', $search)
@@ -1103,10 +1114,11 @@ class TransactionHeaderController extends Controller
                   ->orWhere('phone_number_4', '=', $search);
             })
             ->orWhere(function($q) use ($search) {
-                // Partial match with FULLTEXT
+                // Strict AND matching: all words must be present
+                // Use + prefix with * wildcard: +word1* +word2* +word3*
                 $words = preg_split('/\s+/', trim($search));
                 $fulltextSearch = implode(' ', array_map(function($word) {
-                    return $word . '*';
+                    return '+' . $word . '*';
                 }, $words));
                 $q->whereRaw(
                     'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
@@ -1115,7 +1127,7 @@ class TransactionHeaderController extends Controller
             });
         } else {
             // Single word/text - use FULLTEXT with wildcard
-            $fulltextSearch = $search . '*';
+            $fulltextSearch = '+' . $search . '*';
             $searchWhere->whereRaw(
                 'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
                 [$fulltextSearch]

@@ -566,7 +566,8 @@
         function hasActiveFilters() {
             return $('#search').val() !== '' || 
                    $('#date_from').val() !== '' || 
-                   $('#date_to').val() !== '';
+                   $('#date_to').val() !== '' ||
+                   $('#brand_code').val() !== '';
         }
 
         // Function to update export button
@@ -575,6 +576,7 @@
             if (hasActiveFilters()) {
                 const params = new URLSearchParams({
                     search: $('#search').val(),
+                    search_field: $('#search_field').val(),
                     date_from: $('#date_from').val(),
                     date_to: $('#date_to').val(),
                     brand_code: $('#brand_code').val(),
@@ -623,7 +625,15 @@
             // Validation: Check if search field and search value are filled
             const searchField = $('#search_field').val();
             const searchValue = $('#search').val().trim();
+            const brandCode = $('#brand_code').val();
             
+            // If brand_code is selected, search_field and search are not required
+            if (brandCode) {
+                performSearch(1, true, true); // Show clear button after search
+                return true;
+            }
+            
+            // If brand_code is NOT selected, both search_field and search are required
             if (!searchField) {
                 alert('Please select a Search Field');
                 $('#search_field').focus();
@@ -631,6 +641,13 @@
             }
             
             if (!searchValue) {
+                alert('Please enter a Search value');
+                $('#search').focus();
+                return false;
+            }
+            
+            // If search_field is selected but search is empty, show validation error
+            if (searchField && !searchValue) {
                 alert('Please enter a Search value');
                 $('#search').focus();
                 return false;
@@ -787,7 +804,8 @@
                 'discount': {{ $canViewCostPrice ? '7' : '6' }},
                 'extended_price': {{ $canViewCostPrice ? '8' : '7' }},
                 'unit': {{ $canViewCostPrice ? '9' : '8' }},
-                'part_or_labour': {{ $canViewCostPrice ? '10' : '9' }}
+                'part_or_labour': {{ $canViewCostPrice ? '10' : '9' }},
+                'operator_name': {{ $canViewCostPrice ? '11' : '10' }}
             };
             return columnMap[column] || 1;
         }

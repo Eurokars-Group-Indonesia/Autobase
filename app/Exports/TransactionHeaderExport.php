@@ -392,7 +392,8 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
                             ->where(function($bodyWhere) use ($search, $isDate) {
                                 $bodyWhere->where('tx_body.part_no', 'like', $search . '%')
                                           ->orWhere('tx_body.wip_no', 'like', $search . '%')
-                                          ->orWhere('tx_body.invoice_no', 'like', $search . '%');
+                                          ->orWhere('tx_body.invoice_no', 'like', $search . '%')
+                                          ->orWhere('tx_body.operator_name', 'like', $search . '%');
                                 
                                 // Only add date search if format matches
                                 if ($isDate) {
@@ -444,7 +445,7 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
     {
         if ($isPureDigits) {
             // Pure digits - search in invoice_no, wip_no, chassis, account_code, AND phone numbers
-            $phoneSearch = $search . '*';
+            $phoneSearch = '+' . $search . '*';
             $searchWhere->where('tx_header.invoice_no', 'like', $search . '%')
                         ->orWhere('tx_header.wip_no', 'like', $search . '%')
                         ->orWhere('tx_header.chassis', 'like', $search . '%')
@@ -454,13 +455,10 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
                             [$phoneSearch]
                         );
         } else {
-            // Strip common titles/prefixes from search to improve matching
-            $searchClean = preg_replace('/^(mr|mrs|ms|miss|dr|prof|sir|madam|lady|lord)\.?\s+/i', '', trim($search));
-            
-            // For text search, use FULLTEXT search without NGRAM parser
-            $words = preg_split('/\s+/', $searchClean);
+            // For text search, use strict FULLTEXT search with + prefix and * wildcard
+            $words = preg_split('/\s+/', trim($search));
             $fulltextSearch = implode(' ', array_map(function($word) {
-                return $word . '*';
+                return '+' . $word . '*';
             }, $words));
             
             // Use FULLTEXT search for customer_name, registration_no, account_name, and phone numbers
@@ -479,6 +477,7 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
      * Apply text search with FULLTEXT and partial/full string matching
      * Partial: "ber" matches "Bernando"
      * Full: "Bernando Torrez" matches exactly "Bernando Torrez" only
+     * Partial multi-word: "Takahashi Mitsuko" matches "Ms Takahashi Mitsuko"
      */
     private function applyTextSearch(&$searchWhere, $search, $field)
     {
@@ -486,11 +485,20 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
         $hasSpaces = strpos($search, ' ') !== false;
         
         if ($hasSpaces) {
-            // Has spaces - use exact match only (no partial matching)
-            $searchWhere->where($field, '=', $search);
+            // Has spaces - try exact phrase first, then strict AND matching
+            $searchWhere->where($field, '=', $search)
+                        ->orWhere(function($q) use ($search, $field) {
+                            // Strict AND matching: all words must be present
+                            // Use + prefix with * wildcard: +word1* +word2* +word3*
+                            $words = preg_split('/\s+/', trim($search));
+                            $fulltextSearch = implode(' ', array_map(function($word) {
+                                return '+' . $word . '*';
+                            }, $words));
+                            $q->whereRaw('MATCH(' . $field . ') AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+                        });
         } else {
             // Single word - use FULLTEXT with wildcard for partial matching
-            $fulltextSearch = $search . '*';
+            $fulltextSearch = '+' . $search . '*';
             $searchWhere->whereRaw('MATCH(' . $field . ') AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
         }
     }
@@ -504,7 +512,7 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
         
         if ($isPureDigits) {
             // Pure digits - search for partial digit match
-            $phoneSearch = $search . '*';
+            $phoneSearch = '+' . $search . '*';
             $searchWhere->whereRaw(
                 'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
                 [$phoneSearch]
@@ -519,10 +527,11 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
                   ->orWhere('phone_number_4', '=', $search);
             })
             ->orWhere(function($q) use ($search) {
-                // Partial match with FULLTEXT
+                // Strict AND matching: all words must be present
+                // Use + prefix with * wildcard: +word1* +word2* +word3*
                 $words = preg_split('/\s+/', trim($search));
                 $fulltextSearch = implode(' ', array_map(function($word) {
-                    return $word . '*';
+                    return '+' . $word . '*';
                 }, $words));
                 $q->whereRaw(
                     'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
@@ -531,7 +540,7 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
             });
         } else {
             // Single word/text - use FULLTEXT with wildcard
-            $fulltextSearch = $search . '*';
+            $fulltextSearch = '+' . $search . '*';
             $searchWhere->whereRaw(
                 'MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)',
                 [$fulltextSearch]

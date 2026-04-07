@@ -13,15 +13,17 @@ use Maatwebsite\Excel\Events\AfterSheet;
 class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, ShouldAutoSize
 {
     protected $search;
+    protected $searchField;
     protected $dateFrom;
     protected $dateTo;
     protected $userBrandCodes;
     protected $brandCode;
     protected $canViewCostPrice;
 
-    public function __construct($search = null, $dateFrom = null, $dateTo = null, $userBrandCodes = [], $brandCode = null)
+    public function __construct($search = null, $dateFrom = null, $dateTo = null, $userBrandCodes = [], $brandCode = null, $searchField = '')
     {
         $this->search = $search;
+        $this->searchField = $searchField;
         $this->dateFrom = $dateFrom;
         $this->dateTo = $dateTo;
         $this->userBrandCodes = $userBrandCodes;
@@ -42,23 +44,17 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
             $query->whereIn('tx_body.pos_code', $this->userBrandCodes);
         }
 
-        // Apply filters
+        // Apply filters with field-specific search
         if ($this->search) {
-            $search = $this->search;
-            $query->where(function($q) use ($search) {
-                $q->where('tx_body.part_no', 'like', $search . '%')
-                  ->orWhere('tx_body.invoice_no', 'like', $search . '%')
-                  ->orWhere('tx_body.wip_no', 'like', $search . '%')
-                  ->orWhere('tx_body.description', 'like', $search . '%');
-            });
+            $this->applySearchFilter($query, $this->search, $this->searchField);
         }
 
         if ($this->dateFrom) {
-            $query->whereDate('tx_body.date_decard', '>=', $this->dateFrom);
+            $query->where('tx_body.date_decard', '>=', $this->dateFrom);
         }
 
         if ($this->dateTo) {
-            $query->whereDate('tx_body.date_decard', '<=', $this->dateTo);
+            $query->where('tx_body.date_decard', '<=', $this->dateTo);
         }
 
         $bodies = $query->get();
@@ -134,6 +130,55 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
         }
         
         return $rows;
+    }
+
+    private function applySearchFilter(&$query, $search, $searchField = '')
+    {
+        if (empty($search)) {
+            return;
+        }
+
+        $isPureDigits = preg_match('/^\d+$/', $search);
+
+        // If specific field is selected
+        if (!empty($searchField)) {
+            $this->applyFieldSpecificSearch($query, $search, $searchField, $isPureDigits);
+        } else {
+            // Search all fields (original logic)
+            $this->applyAllFieldsSearch($query, $search, $isPureDigits);
+        }
+    }
+
+    private function applyFieldSpecificSearch(&$query, $search, $searchField, $isPureDigits)
+    {
+        switch ($searchField) {
+            case 'part_no':
+                $query->where('tx_body.part_no', 'like', $search . '%');
+                break;
+            case 'description':
+                $query->where('tx_body.description', 'like', $search . '%');
+                break;
+            case 'invoice_no':
+                $query->where('tx_body.invoice_no', 'like', $search . '%');
+                break;
+            case 'wip_no':
+                $query->where('tx_body.wip_no', 'like', $search . '%');
+                break;
+            case 'operator_name':
+                $query->where('tx_body.operator_name', 'like', $search . '%');
+                break;
+        }
+    }
+
+    private function applyAllFieldsSearch(&$query, $search, $isPureDigits)
+    {
+        $query->where(function($q) use ($search, $isPureDigits) {
+            $q->where('tx_body.part_no', 'like', $search . '%')
+              ->orWhere('tx_body.invoice_no', 'like', $search . '%')
+              ->orWhere('tx_body.wip_no', 'like', $search . '%')
+              ->orWhere('tx_body.description', 'like', $search . '%')
+              ->orWhere('tx_body.operator_name', 'like', $search . '%');
+        });
     }
 
     public function styles(Worksheet $sheet)

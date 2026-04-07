@@ -169,7 +169,10 @@ class TransactionBodyController extends Controller
         $hasDateFrom = $request->has('date_from') && $request->date_from != '';
         $hasDateTo = $request->has('date_to') && $request->date_to != '';
         $hasBrandFilter = $request->has('brand_code') && $request->brand_code != '';
-        $hasFilter = $hasSearch || $hasDateFrom || $hasDateTo;
+        // Treat brand filter as a search for display purposes
+        $hasFilter = $hasSearch || $hasDateFrom || $hasDateTo || $hasBrandFilter;
+        // Check if it's ONLY brand filter (no search/date filters)
+        $isBrandFilterOnly = $hasBrandFilter && !$hasSearch && !$hasDateFrom && !$hasDateTo;
 
         // Filter by user's brands or specific brand if selected
         if ($hasBrandFilter) {
@@ -189,6 +192,7 @@ class TransactionBodyController extends Controller
             // Generate cache key based on user and search parameters
             $userId = auth()->id();
             $search = $request->get('search', '');
+            $searchField = $request->get('search_field', '');
             $dateFrom = $request->get('date_from', '');
             $dateTo = $request->get('date_to', '');
             $brandCode = $request->get('brand_code', '');
@@ -197,27 +201,25 @@ class TransactionBodyController extends Controller
             $sortColumn = $request->get('sort_column', 'date_decard');
             $sortDirection = $request->get('sort_direction', 'desc');
 
-            $cacheKey = "body:{$userId}:{$search}:{$dateFrom}:{$dateTo}:{$brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
+            $cacheKey = "body:{$userId}:{$search}:{$searchField}:{$dateFrom}:{$dateTo}:{$brandCode}:{$perPage}:{$page}:{$sortColumn}:{$sortDirection}";
             
             // Try to get from cache (1 hour)
             $transactions = cache()->remember($cacheKey, now()->addHour(), function () use ($request, $query) {
                 // Search by text
                 if ($request->has('search') && $request->search != '') {
                     $search = $request->search;
-                    $query->where(function($q) use ($search) {
-                        $q->where('part_no', 'like', $search . '%')
-                          ->orWhere('invoice_no', 'like', $search . '%')
-                          ->orWhere('wip_no', 'like', $search . '%');
-                    });
+                    $searchField = $request->get('search_field', '');
+                    
+                    $this->applySearchFilter($query, $search, $searchField);
                 }
                 
                 // Filter by date range
                 if ($request->has('date_from') && $request->date_from != '') {
-                    $query->whereDate('date_decard', '>=', $request->date_from);
+                    $query->where('tx_body.date_decard', '>=', $request->date_from);
                 }
 
                 if ($request->has('date_to') && $request->date_to != '') {
-                    $query->whereDate('date_decard', '<=', $request->date_to);
+                    $query->where('tx_body.date_decard', '<=', $request->date_to);
                 }
 
                 // Pagination
@@ -254,7 +256,8 @@ class TransactionBodyController extends Controller
         return response()->json([
             'success' => true,
             'hasFilter' => $hasFilter,
-            'html' => view('transaction-body.partials.table', compact('transactions', 'canViewCostPrice'))->render(),
+            'isBrandFilterOnly' => $isBrandFilterOnly,
+            'html' => view('transaction-body.partials.table', compact('transactions', 'canViewCostPrice', 'hasFilter', 'isBrandFilterOnly'))->render(),
             'pagination' => view('transaction-body.partials.pagination', compact('transactions'))->render()
         ]);
     }
@@ -559,6 +562,55 @@ class TransactionBodyController extends Controller
         return $columnMap[$column] ?? ucwords(str_replace('_', ' ', $column));
     }
 
+    private function applySearchFilter(&$query, $search, $searchField = '')
+    {
+        if (empty($search)) {
+            return;
+        }
+
+        $isPureDigits = preg_match('/^\d+$/', $search);
+
+        // If specific field is selected
+        if (!empty($searchField)) {
+            $this->applyFieldSpecificSearch($query, $search, $searchField, $isPureDigits);
+        } else {
+            // Search all fields (original logic)
+            $this->applyAllFieldsSearch($query, $search, $isPureDigits);
+        }
+    }
+
+    private function applyFieldSpecificSearch(&$query, $search, $searchField, $isPureDigits)
+    {
+        switch ($searchField) {
+            case 'part_no':
+                $query->where('tx_body.part_no', 'like', $search . '%');
+                break;
+            case 'description':
+                $query->where('tx_body.description', 'like', $search . '%');
+                break;
+            case 'invoice_no':
+                $query->where('tx_body.invoice_no', 'like', $search . '%');
+                break;
+            case 'wip_no':
+                $query->where('tx_body.wip_no', 'like', $search . '%');
+                break;
+            case 'operator_name':
+                $query->where('tx_body.operator_name', 'like', $search . '%');
+                break;
+        }
+    }
+
+    private function applyAllFieldsSearch(&$query, $search, $isPureDigits)
+    {
+        $query->where(function($q) use ($search, $isPureDigits) {
+            $q->where('tx_body.part_no', 'like', $search . '%')
+              ->orWhere('tx_body.invoice_no', 'like', $search . '%')
+              ->orWhere('tx_body.wip_no', 'like', $search . '%')
+              ->orWhere('tx_body.description', 'like', $search . '%')
+              ->orWhere('tx_body.operator_name', 'like', $search . '%');
+        });
+    }
+
     public function downloadTemplate()
     {
         $headers = [
@@ -619,17 +671,18 @@ class TransactionBodyController extends Controller
     public function export(Request $request)
     {
         $search = $request->get('search');
+        $searchField = $request->get('search_field', '');
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
         $brandCode = $request->get('brand_code');
 
-        // Check if there's any filter (search or date, not just brand)
-        $hasFilter = !empty($search) || !empty($dateFrom) || !empty($dateTo);
+        // Check if there's any filter (search, date, or brand)
+        $hasFilter = !empty($search) || !empty($dateFrom) || !empty($dateTo) || !empty($brandCode);
 
-        // Only allow export when there's search or date filter
+        // Only allow export when there's a filter
         if (!$hasFilter) {
             return redirect()->route('transaction-body.index')
-                ->with('error', 'Please apply search or date filter before exporting.');
+                ->with('error', 'Please apply a filter before exporting.');
         }
 
         // Get user's brand IDs (realtime query)
@@ -644,7 +697,7 @@ class TransactionBodyController extends Controller
 
         // Export with brand filter
         return Excel::download(
-            new TransactionBodyExport($search, $dateFrom, $dateTo, $userBrandCodes, $brandCode),
+            new TransactionBodyExport($search, $dateFrom, $dateTo, $userBrandCodes, $brandCode, $searchField),
             $filename
         );
     }
