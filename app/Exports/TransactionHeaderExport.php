@@ -457,21 +457,35 @@ class TransactionHeaderExport implements FromCollection, WithStyles, WithEvents,
                             [$phoneSearch]
                         );
         } else {
-            // For text search, use strict FULLTEXT search with + prefix and * wildcard
+            // For text search, use two-step approach:
+            // Step 1: Try exact phrase match (all words together in order)
+            $exactPhraseSearch = '"' . $search . '"';
+            
+            // Step 2: Fallback to strict partial word matching (all words required but can be in any order)
             $words = preg_split('/\s+/', trim($search));
-            $fulltextSearch = implode(' ', array_map(function($word) {
+            $partialWordSearch = implode(' ', array_map(function($word) {
                 return '+' . $word . '*';
             }, $words));
             
-            // Use FULLTEXT search for customer_name, registration_no, account_name, and phone numbers
-            $searchWhere->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
-                        ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
-                        ->orWhere('tx_header.chassis', 'like', $search . '%')
-                        ->orWhere('tx_header.invoice_no', 'like', $search . '%')
-                        ->orWhere('tx_header.wip_no', 'like', $search . '%')
-                        ->orWhere('tx_header.account_code', 'like', $search . '%')
-                        ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch])
-                        ->orWhereRaw('MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+            // Use FULLTEXT search with exact phrase first, then fallback to partial word matching
+            $searchWhere->where(function($exactMatch) use ($exactPhraseSearch) {
+                $exactMatch->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$exactPhraseSearch])
+                           ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$exactPhraseSearch])
+                           ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$exactPhraseSearch])
+                           ->orWhereRaw('MATCH(tx_header.description) AGAINST(? IN BOOLEAN MODE)', [$exactPhraseSearch])
+                           ->orWhereRaw('MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)', [$exactPhraseSearch]);
+            })
+            ->orWhere(function($partialMatch) use ($partialWordSearch) {
+                $partialMatch->whereRaw('MATCH(tx_header.customer_name) AGAINST(? IN BOOLEAN MODE)', [$partialWordSearch])
+                             ->orWhereRaw('MATCH(tx_header.registration_no) AGAINST(? IN BOOLEAN MODE)', [$partialWordSearch])
+                             ->orWhereRaw('MATCH(tx_header.account_name) AGAINST(? IN BOOLEAN MODE)', [$partialWordSearch])
+                             ->orWhereRaw('MATCH(tx_header.description) AGAINST(? IN BOOLEAN MODE)', [$partialWordSearch])
+                             ->orWhereRaw('MATCH(phone_number_1, phone_number_2, phone_number_3, phone_number_4) AGAINST(? IN BOOLEAN MODE)', [$partialWordSearch]);
+            })
+            ->orWhere('tx_header.chassis', 'like', $search . '%')
+            ->orWhere('tx_header.invoice_no', 'like', $search . '%')
+            ->orWhere('tx_header.wip_no', 'like', $search . '%')
+            ->orWhere('tx_header.account_code', 'like', $search . '%');
         }
     }
 

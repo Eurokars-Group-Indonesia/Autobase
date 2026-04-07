@@ -172,12 +172,38 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
 
     private function applyAllFieldsSearch(&$query, $search, $isPureDigits)
     {
-        $query->where(function($q) use ($search, $isPureDigits) {
-            $q->where('tx_body.part_no', 'like', $search . '%')
-              ->orWhere('tx_body.invoice_no', 'like', $search . '%')
-              ->orWhere('tx_body.wip_no', 'like', $search . '%')
-              ->orWhere('tx_body.description', 'like', $search . '%')
-              ->orWhere('tx_body.operator_name', 'like', $search . '%');
+        // For text search, use two-step approach:
+        // Step 1: Try exact phrase match (all words together in order)
+        $exactPhraseSearch = '"' . $search . '"';
+        
+        // Step 2: Fallback to strict partial word matching (all words required but can be in any order)
+        $words = preg_split('/\s+/', trim($search));
+        $partialWordSearch = implode(' ', array_map(function($word) {
+            return '+' . $word . '*';
+        }, $words));
+
+        $query->where(function($q) use ($search, $exactPhraseSearch, $partialWordSearch, $isPureDigits) {
+            // Try exact phrase match first
+            $q->where(function($exactMatch) use ($exactPhraseSearch) {
+                $exactMatch->where('tx_body.part_no', 'like', $exactPhraseSearch . '%')
+                           ->orWhere('tx_body.invoice_no', 'like', $exactPhraseSearch . '%')
+                           ->orWhere('tx_body.wip_no', 'like', $exactPhraseSearch . '%')
+                           ->orWhere('tx_body.operator_name', 'like', $exactPhraseSearch . '%')
+                           ->orWhereRaw('MATCH(tx_body.description) AGAINST(? IN BOOLEAN MODE)', [$exactPhraseSearch]);
+            })
+            // Fallback to partial word matching
+            ->orWhere(function($partialMatch) use ($partialWordSearch) {
+                $partialMatch->where('tx_body.part_no', 'like', $partialWordSearch . '%')
+                             ->orWhere('tx_body.invoice_no', 'like', $partialWordSearch . '%')
+                             ->orWhere('tx_body.wip_no', 'like', $partialWordSearch . '%')
+                             ->orWhere('tx_body.operator_name', 'like', $partialWordSearch . '%')
+                             ->orWhereRaw('MATCH(tx_body.description) AGAINST(? IN BOOLEAN MODE)', [$partialWordSearch]);
+            })
+            // Also search with original search term for LIKE fields
+            ->orWhere('tx_body.part_no', 'like', $search . '%')
+            ->orWhere('tx_body.invoice_no', 'like', $search . '%')
+            ->orWhere('tx_body.wip_no', 'like', $search . '%')
+            ->orWhere('tx_body.operator_name', 'like', $search . '%');
         });
     }
 
