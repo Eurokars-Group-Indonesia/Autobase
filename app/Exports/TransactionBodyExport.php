@@ -13,15 +13,17 @@ use Maatwebsite\Excel\Events\AfterSheet;
 class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, ShouldAutoSize
 {
     protected $search;
+    protected $searchField;
     protected $dateFrom;
     protected $dateTo;
     protected $userBrandCodes;
     protected $brandCode;
     protected $canViewCostPrice;
 
-    public function __construct($search = null, $dateFrom = null, $dateTo = null, $userBrandCodes = [], $brandCode = null)
+    public function __construct($search = null, $dateFrom = null, $dateTo = null, $userBrandCodes = [], $brandCode = null, $searchField = '')
     {
         $this->search = $search;
+        $this->searchField = $searchField;
         $this->dateFrom = $dateFrom;
         $this->dateTo = $dateTo;
         $this->userBrandCodes = $userBrandCodes;
@@ -42,23 +44,17 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
             $query->whereIn('tx_body.pos_code', $this->userBrandCodes);
         }
 
-        // Apply filters
+        // Apply filters with field-specific search
         if ($this->search) {
-            $search = $this->search;
-            $query->where(function($q) use ($search) {
-                $q->where('tx_body.part_no', 'like', $search . '%')
-                  ->orWhere('tx_body.invoice_no', 'like', $search . '%')
-                  ->orWhere('tx_body.wip_no', 'like', $search . '%')
-                  ->orWhere('tx_body.description', 'like', $search . '%');
-            });
+            $this->applySearchFilter($query, $this->search, $this->searchField);
         }
 
         if ($this->dateFrom) {
-            $query->whereDate('tx_body.date_decard', '>=', $this->dateFrom);
+            $query->where('tx_body.date_decard', '>=', $this->dateFrom);
         }
 
         if ($this->dateTo) {
-            $query->whereDate('tx_body.date_decard', '<=', $this->dateTo);
+            $query->where('tx_body.date_decard', '<=', $this->dateTo);
         }
 
         $bodies = $query->get();
@@ -134,6 +130,104 @@ class TransactionBodyExport implements FromCollection, WithStyles, WithEvents, S
         }
         
         return $rows;
+    }
+
+    private function applySearchFilter(&$query, $search, $searchField = '')
+    {
+        if (empty($search)) {
+            return;
+        }
+
+        $isPureDigits = preg_match('/^\d+$/', $search);
+
+        // If specific field is selected
+        if (!empty($searchField)) {
+            $this->applyFieldSpecificSearch($query, $search, $searchField, $isPureDigits);
+        } else {
+            // Search all fields (original logic)
+            $this->applyAllFieldsSearch($query, $search, $isPureDigits);
+        }
+    }
+
+    private function applyFieldSpecificSearch(&$query, $search, $searchField, $isPureDigits)
+    {
+        switch ($searchField) {
+            case 'part_no':
+                $query->where('tx_body.part_no', 'like', $search . '%');
+                break;
+            case 'description':
+                $this->applyTextSearch($query, $search, 'tx_body.description');
+                break;
+            case 'invoice_no':
+                $query->where('tx_body.invoice_no', 'like', $search . '%');
+                break;
+            case 'wip_no':
+                $query->where('tx_body.wip_no', 'like', $search . '%');
+                break;
+            case 'operator_name':
+                $query->where('tx_body.operator_name', 'like', $search . '%');
+                break;
+        }
+    }
+
+    private function applyAllFieldsSearch(&$query, $search, $isPureDigits)
+    {
+        // For text search, use two-step approach:
+        // Step 1: Try exact phrase match (all words together in order)
+        $exactPhraseSearch = '"' . $search . '"';
+        
+        // Step 2: Fallback to strict partial word matching (all words required but can be in any order)
+        $words = preg_split('/\s+/', trim($search));
+        $partialWordSearch = implode(' ', array_map(function($word) {
+            return '+' . $word . '*';
+        }, $words));
+
+        $query->where(function($q) use ($search, $exactPhraseSearch, $partialWordSearch, $isPureDigits) {
+            // Try exact phrase match first
+            $q->where(function($exactMatch) use ($exactPhraseSearch) {
+                $exactMatch->where('tx_body.part_no', 'like', $exactPhraseSearch . '%')
+                           ->orWhere('tx_body.invoice_no', 'like', $exactPhraseSearch . '%')
+                           ->orWhere('tx_body.wip_no', 'like', $exactPhraseSearch . '%')
+                           ->orWhere('tx_body.operator_name', 'like', $exactPhraseSearch . '%')
+                           ->orWhereRaw('MATCH(tx_body.description) AGAINST(? IN BOOLEAN MODE)', [$exactPhraseSearch]);
+            })
+            // Fallback to partial word matching
+            ->orWhere(function($partialMatch) use ($partialWordSearch) {
+                $partialMatch->where('tx_body.part_no', 'like', $partialWordSearch . '%')
+                             ->orWhere('tx_body.invoice_no', 'like', $partialWordSearch . '%')
+                             ->orWhere('tx_body.wip_no', 'like', $partialWordSearch . '%')
+                             ->orWhere('tx_body.operator_name', 'like', $partialWordSearch . '%')
+                             ->orWhereRaw('MATCH(tx_body.description) AGAINST(? IN BOOLEAN MODE)', [$partialWordSearch]);
+            })
+            // Also search with original search term for LIKE fields
+            ->orWhere('tx_body.part_no', 'like', $search . '%')
+            ->orWhere('tx_body.invoice_no', 'like', $search . '%')
+            ->orWhere('tx_body.wip_no', 'like', $search . '%')
+            ->orWhere('tx_body.operator_name', 'like', $search . '%');
+        });
+    }
+    private function applyTextSearch(&$query, $search, $field)
+    {
+        // Check if search contains spaces (potential full string match)
+        $hasSpaces = strpos($search, ' ') !== false;
+
+        if ($hasSpaces) {
+            // Has spaces - try exact phrase first, then strict AND matching
+            $query->where($field, '=', $search)
+                  ->orWhere(function($q) use ($search, $field) {
+                      // Strict AND matching: all words must be present
+                      // Use + prefix with * wildcard: +word1* +word2* +word3*
+                      $words = preg_split('/\s+/', trim($search));
+                      $fulltextSearch = implode(' ', array_map(function($word) {
+                          return '+' . $word . '*';
+                      }, $words));
+                      $q->whereRaw('MATCH(' . $field . ') AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+                  });
+        } else {
+            // Single word - use FULLTEXT with wildcard for partial matching
+            $fulltextSearch = '+' . $search . '*';
+            $query->whereRaw('MATCH(' . $field . ') AGAINST(? IN BOOLEAN MODE)', [$fulltextSearch]);
+        }
     }
 
     public function styles(Worksheet $sheet)

@@ -170,7 +170,7 @@
                                 <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
                             </select>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <label class="form-label">POS Code</label>
                             <select class="form-select form-select-sm" name="brand_code" id="brand_code">
                                 <option value="">All POS Code</option>
@@ -181,10 +181,21 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <label class="form-label">Search Field</label>
+                            <select class="form-select form-select-sm" name="search_field" id="search_field">
+                                <option value="">All Fields</option>
+                                <option value="part_no" {{ request('search_field') == 'part_no' ? 'selected' : '' }}>Part No</option>
+                                <option value="description" {{ request('search_field') == 'description' ? 'selected' : '' }}>Description</option>
+                                <option value="invoice_no" {{ request('search_field') == 'invoice_no' ? 'selected' : '' }}>Invoice No</option>
+                                <option value="wip_no" {{ request('search_field') == 'wip_no' ? 'selected' : '' }}>WIP No</option>
+                                <option value="operator_name" {{ request('search_field') == 'operator_name' ? 'selected' : '' }}>Operator Name</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label">Search</label>
                             <input type="text" class="form-control form-control-sm" name="search" id="search"
-                                   placeholder="Part No, Invoice No, WIP No..." 
+                                   placeholder="Enter search value..." 
                                    value="{{ request('search') }}">
                         </div>
                         <div class="col-md-2">
@@ -302,6 +313,7 @@
         function performSearch(page = 1, updateUrl = true, showClearButton = false) {
             const formData = {
                 search: $('#search').val(),
+                search_field: $('#search_field').val(),
                 date_from: $('#date_from').val(),
                 date_to: $('#date_to').val(),
                 brand_code: $('#brand_code').val(),
@@ -381,7 +393,8 @@
         function hasActiveFilters() {
             return $('#search').val() !== '' || 
                    $('#date_from').val() !== '' || 
-                   $('#date_to').val() !== '';
+                   $('#date_to').val() !== '' ||
+                   $('#brand_code').val() !== '';
         }
 
         // Function to update export button
@@ -390,6 +403,7 @@
             if (hasActiveFilters()) {
                 const params = new URLSearchParams({
                     search: $('#search').val(),
+                    search_field: $('#search_field').val(),
                     date_from: $('#date_from').val(),
                     date_to: $('#date_to').val(),
                     brand_code: $('#brand_code').val(),
@@ -434,12 +448,45 @@
         // Handle search form submit
         $('#searchForm').on('submit', function(e) {
             e.preventDefault();
+            
+            // Validation: Check if search field and search value are filled
+            const searchField = $('#search_field').val();
+            const searchValue = $('#search').val().trim();
+            const brandCode = $('#brand_code').val();
+            
+            // If brand_code is selected, search_field and search are not required
+            if (brandCode) {
+                performSearch(1, true, true); // Show clear button after search
+                return true;
+            }
+            
+            // If brand_code is NOT selected, both search_field and search are required
+            if (!searchField) {
+                alert('Please select a Search Field');
+                $('#search_field').focus();
+                return false;
+            }
+            
+            if (!searchValue) {
+                alert('Please enter a Search value');
+                $('#search').focus();
+                return false;
+            }
+            
+            // If search_field is selected but search is empty, show validation error
+            if (searchField && !searchValue) {
+                alert('Please enter a Search value');
+                $('#search').focus();
+                return false;
+            }
+            
             performSearch(1, true, true); // Show clear button after search
         });
 
         // Handle clear button
         $('#clearBtn').on('click', function() {
             $('#search').val('');
+            $('#search_field').val('');
             $('#date_from').val('');
             $('#date_to').val('');
             $('#date_from_display').val('');

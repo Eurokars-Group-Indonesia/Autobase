@@ -2,8 +2,8 @@
 @php
     $canViewCostPrice = auth()->user()->hasPermission('cost.price.view');
 @endphp
-@if($hasFilter)
-    {{-- When filtering, show header labels first --}}
+@if($hasFilter && !$isBrandFilterOnly)
+    {{-- When filtering (but not brand-only), show header labels first with body details --}}
     @forelse($transactions as $transaction)
         <div class="transaction-group">
             <table class="table table-hover table-sm table-nowrap mb-0">
@@ -65,7 +65,7 @@
                     <!-- Body Details Row -->
                     @if(isset($transaction->bodies) && count($transaction->bodies) > 0)
                     <tr class="body-details-row">
-                        <td colspan="{{ $canViewCostPrice ? 18 : 17 }}" class="p-3">
+                        <td colspan="{{ $canViewCostPrice ? 19 : 18 }}" class="p-3">
                             <h6 class="mb-3 text-primary">
                             </h6>
                             <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
@@ -105,6 +105,9 @@
                                             <th class="text-center sortable-header-inline" data-column="part_or_labour" style="cursor: pointer;">
                                                 Part/Labour <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
                                             </th>
+                                            <th class="text-center sortable-header-inline" data-column="operator_name" style="cursor: pointer;">
+                                                Operator Name <span class="sort-icon"><i class="bi bi-arrow-up"></i><i class="bi bi-arrow-down"></i></span>
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody class="body-details-tbody" data-wipno="{{ $transaction->wip_no }}" data-invno="{{ $transaction->invoice_no }}" data-poscode="{{ $transaction->pos_code }}" data-magicid="{{ $transaction->magic_id }}">
@@ -135,12 +138,13 @@
                                                         {{ $body->part_or_labour === 'P' ? 'Part' : 'Labour' }}
                                                     </span>
                                                 </td>
+                                                <td>{{ $body->operator_name ?? '-' }}</td>
                                             </tr>
                                         @endforeach
                                     </tbody>
                                     <tfoot class="table-secondary" style="position: sticky; bottom: 0; z-index: 5;">
                                         <tr>
-                                            <th colspan="{{ $canViewCostPrice ? 9 : 8 }}" class="text-end">Total Extended Price :</th>
+                                            <th colspan="{{ $canViewCostPrice ? 10 : 9 }}" class="text-end">Total Extended Price :</th>
                                             <th class="text-end">{{ number_format($totalExtPrice, 2) }}</th>
                                             <th colspan="2"></th>
                                         </tr>
