@@ -26,8 +26,8 @@ class UserController extends Controller
         $query = User::with(['roles', 'brands', 'dealer'])
             ->where('is_active', '1')
             ->whereNotIn('user_id', $superAdminUserIds); // Exclude SUPER ADMIN users
-        
-        // Search functionality
+
+        // Search functionality - search by name, email, full name, phone
         if (request()->has('search') && request('search') != '') {
             $search = request('search');
             $query->where(function($q) use ($search) {
@@ -38,7 +38,11 @@ class UserController extends Controller
             });
         }
         
-        $users = $query->paginate(10)->withQueryString();
+        // Pagination
+        $perPage = request('per_page', 20);
+        $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
+        
+        $users = $query->paginate($perPageValue)->withQueryString();
         return view('users.index', compact('users'));
     }
 

@@ -4,7 +4,7 @@ services:
   # Nginx Web Server
   nginx:
     image: nginx:alpine
-    container_name: laravel_nginx
+    container_name: autobase_nginx
     ports:
       - "8000:80"
       - "8443:443"
@@ -23,7 +23,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: laravel_app
+    container_name: autobase_app
     # Removed user mapping - container runs as www-data (defined in Dockerfile)
     # user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     volumes:
@@ -42,7 +42,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: laravel_queue
+    container_name: autobase_queue
     # Removed user mapping - container runs as www-data (defined in Dockerfile)
     # user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     volumes:

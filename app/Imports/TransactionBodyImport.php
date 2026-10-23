@@ -27,6 +27,8 @@ class TransactionBodyImport implements
     protected $errors = [];
     protected $successCount = 0;
     protected $userBrandCodes = null; // Cache user brand codes
+    protected $rowsToProcess = [];
+    protected $hasValidationErrors = false;
     public $currentRow = 1;
 
     public function __construct()
@@ -54,7 +56,7 @@ class TransactionBodyImport implements
     public function model(array $row)
     {
         $this->currentRow++;
-        
+
         try {
             Log::info("Processing row {$this->currentRow}", ['data' => $row]);
 
@@ -120,7 +122,7 @@ class TransactionBodyImport implements
 
             // Parse date
             $dateDecard = $this->parseDate($row['datedecard'] ?? null);
-            
+
             // Debug logging for date parsing
             if (!empty($row['datedecard'])) {
                 Log::debug("Date parsing for row {$this->currentRow}", [
@@ -390,20 +392,13 @@ class TransactionBodyImport implements
             // If there are any validation errors, add them all and skip this row
             if (!empty($rowErrors)) {
                 $this->errors = array_merge($this->errors, $rowErrors);
+                $this->hasValidationErrors = true;
                 return null;
             }
 
-            // Check if record exists: part_no + invoice_no + wip_no + line + pos_code + magic_2
-            $existing = TransactionBody::where('part_no', $row['part'])
-                ->where('invoice_no', $invoiceNo)
-                ->where('wip_no', $wipNo)
-                ->where('line', $line)
-                ->where('magic_2', $magic2)
-                ->where('pos_code', $row['posco'])
-                ->first();
-
-            // Prepare data
+            // Prepare data for batch processing
             $data = [
+                'row' => $this->currentRow,
                 'part_no' => $row['part'],
                 'invoice_no' => $invoiceNo,
                 'pos_code' => $row['posco'],
@@ -445,81 +440,25 @@ class TransactionBodyImport implements
                 'is_active' => '1',
             ];
 
-            if ($existing) {
-                // UPDATE: Record exists
-                $data['updated_by'] = (string) Auth::id();
-                $existing->update($data);
-                $body = $existing;
-                Log::info("Row {$this->currentRow} UPDATED", [
-                    'body_id' => $body->body_id,
-                    'part_no' => $row['part'],
-                    'invno' => $invoiceNo,
-                    'wipno' => $wipNo,
-                    'line' => $line
-                ]);
-            } else {
-                // INSERT: Record not exists
-                $data['created_by'] = (string) Auth::id();
-                $data['unique_id'] = (string) \Illuminate\Support\Str::uuid();
-                $body = TransactionBody::create($data);
-                Log::info("Row {$this->currentRow} INSERTED", [
-                    'body_id' => $body->body_id,
-                    'part_no' => $row['part'],
-                    'invno' => $invoiceNo,
-                    'wipno' => $wipNo,
-                    'line' => $line
-                ]);
-            }
+            // Add to rows to process (batch processing)
+            $this->rowsToProcess[] = $data;
 
-            $this->successCount++;
-            return $body;
+            return null; // Return null, actual insert/update happens in processBatch()
 
-        } catch (\Illuminate\Database\QueryException $e) {
-            // Handle SQL errors specifically
-            $errorMessage = $e->getMessage();
-            
-            $rowErrors = [];
-            // Check for integer value error
-            if (strpos($errorMessage, 'Incorrect integer value') !== false) {
-                $rowErrors[] = [
-                    'row' => $this->currentRow,
-                    'field' => 'WIPNo',
-                    'value' => $row['wipno'] ?? 'N/A',
-                    'error' => 'WIP Number must be a valid integer. Text values like "WIP000001" are not allowed. Please use only numbers (e.g., 1, 123).'
-                ];
-            } else {
-                $rowErrors[] = [
-                    'row' => $this->currentRow,
-                    'field' => 'Database',
-                    'value' => 'N/A',
-                    'error' => 'Database error: ' . $errorMessage
-                ];
-            }
-            
-            $this->errors = array_merge($this->errors, $rowErrors);
-            
-            Log::error("Database error importing row {$this->currentRow}", [
-                'error' => $errorMessage,
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return null;
         } catch (\Exception $e) {
-            $rowErrors = [];
-            $rowErrors[] = [
+            $this->errors[] = [
                 'row' => $this->currentRow,
                 'field' => 'General',
                 'value' => 'N/A',
                 'error' => $e->getMessage()
             ];
-            
-            $this->errors = array_merge($this->errors, $rowErrors);
-            
-            Log::error("Error importing row {$this->currentRow}", [
+
+            Log::error("Error validating row {$this->currentRow}", [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
+            $this->hasValidationErrors = true;
             return null;
         }
     }
@@ -689,6 +628,63 @@ class TransactionBodyImport implements
     public function chunkSize(): int
     {
         return 1000;
+    }
+
+    public function processBatch()
+    {
+        // If there are validation errors, don't process anything
+        if ($this->hasValidationErrors || empty($this->rowsToProcess)) {
+            return;
+        }
+
+        try {
+            foreach ($this->rowsToProcess as $rowData) {
+                $row = $rowData['row'];
+                
+                // Check if record exists: part_no + invoice_no + wip_no + line + pos_code + magic_2
+                $existing = TransactionBody::where('part_no', $rowData['part_no'])
+                    ->where('invoice_no', $rowData['invoice_no'])
+                    ->where('wip_no', $rowData['wip_no'])
+                    ->where('line', $rowData['line'])
+                    ->where('magic_2', $rowData['magic_2'])
+                    ->where('pos_code', $rowData['pos_code'])
+                    ->first();
+
+                if ($existing) {
+                    // UPDATE: Record exists
+                    $rowData['updated_by'] = (string) Auth::id();
+                    unset($rowData['row']); // Remove row number from data
+                    $existing->update($rowData);
+                    Log::info("Row {$row} UPDATED", [
+                        'body_id' => $existing->body_id,
+                        'part_no' => $rowData['part_no'],
+                        'invno' => $rowData['invoice_no'],
+                        'wipno' => $rowData['wip_no'],
+                        'line' => $rowData['line']
+                    ]);
+                } else {
+                    // INSERT: Record not exists
+                    $rowData['created_by'] = (string) Auth::id();
+                    $rowData['unique_id'] = (string) \Illuminate\Support\Str::uuid();
+                    unset($rowData['row']); // Remove row number from data
+                    TransactionBody::create($rowData);
+                    Log::info("Row {$row} INSERTED", [
+                        'part_no' => $rowData['part_no'],
+                        'invno' => $rowData['invoice_no'],
+                        'wipno' => $rowData['wip_no'],
+                        'line' => $rowData['line']
+                    ]);
+                }
+
+                $this->successCount++;
+            }
+        } catch (\Exception $e) {
+            Log::error("Batch processing error", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     /**

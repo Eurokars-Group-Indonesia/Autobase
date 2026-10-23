@@ -264,7 +264,7 @@
                     <div class="col-md-6 ms-auto">
                         <form action="{{ route('users.index') }}" method="GET">
                             <div class="input-group">
-                                <input type="text" class="form-control" name="search" placeholder="Search by name, email, phone..." value="{{ request('search') }}">
+                                <input type="text" class="form-control" name="search" placeholder="Search by name, email, full name, phone..." value="{{ request('search') }}">
                                 <button class="btn btn-primary" type="submit">
                                     <i class="bi bi-search"></i> Search
                                 </button>

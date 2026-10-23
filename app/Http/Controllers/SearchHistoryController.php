@@ -32,8 +32,8 @@ class SearchHistoryController extends Controller
         }
         
         // Pagination
-        $perPage = $request->get('per_page', 10);
-        $perPageValue = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10;
+        $perPage = $request->get('per_page', 20);
+        $perPageValue = in_array($perPage, [20, 50, 100]) ? $perPage : 20;
         
         $histories = $query->paginate($perPageValue)->withQueryString();
         

@@ -56,7 +56,7 @@ docker-compose logs -f queue
 
 ### Check PHP-FPM Status
 ```bash
-docker exec laravel_app curl http://localhost:9000/status
+docker exec autobase_app curl http://localhost:9000/status
 ```
 
 ### Check OPcache Status
@@ -69,12 +69,12 @@ Akses: http://localhost:8000/opcache-status.php
 
 ### Check Queue Workers
 ```bash
-docker exec laravel_queue supervisorctl status
+docker exec autobase_queue supervisorctl status
 ```
 
 ### Monitor Memory Usage
 ```bash
-docker stats laravel_app laravel_queue
+docker stats autobase_app autobase_queue
 ```
 
 ## Expected Performance Improvements
@@ -103,7 +103,7 @@ docker stats laravel_app laravel_queue
 
 ### Worker Tidak Jalan
 ```bash
-docker exec laravel_queue supervisorctl restart laravel-queue-worker:*
+docker exec autobase_queue supervisorctl restart laravel-queue-worker:*
 ```
 
 ### Memory Limit Error
@@ -118,7 +118,7 @@ Tingkatkan MySQL max_connections atau kurangi queue workers.
 ### OPcache Not Working
 Check logs:
 ```bash
-docker exec laravel_app cat /var/www/html/storage/logs/opcache.log
+docker exec autobase_app cat /var/www/html/storage/logs/opcache.log
 ```
 
 ## Resource Requirements

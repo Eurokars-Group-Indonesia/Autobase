@@ -19,6 +19,7 @@ class TransactionHeader extends Model
         'invoice_no',
         'wip_no',
         'account_code',
+        'account_name',
         'customer_name',
         'address_1',
         'address_2',

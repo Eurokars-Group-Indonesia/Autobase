@@ -76,13 +76,13 @@ Setelah rebuild, cek:
 
 ```bash
 # Cek user (harus www-data, bukan unknown uid 1000)
-docker exec -it laravel_app whoami
+docker exec -it autobase_app whoami
 
 # Cek permission
-docker exec -it laravel_app ls -la /var/www/html/storage
+docker exec -it autobase_app ls -la /var/www/html/storage
 
 # Test write
-docker exec -it laravel_app touch /var/www/html/storage/test.txt
+docker exec -it autobase_app touch /var/www/html/storage/test.txt
 ```
 
 ## 🎯 Hasil Akhir
@@ -106,7 +106,7 @@ Setelah deploy:
 
 ```bash
 # Clear cache laravel-excel
-docker exec -it laravel_app rm -rf /var/www/html/storage/framework/cache/laravel-excel
+docker exec -it autobase_app rm -rf /var/www/html/storage/framework/cache/laravel-excel
 
 # Restart container
 docker-compose restart app queue

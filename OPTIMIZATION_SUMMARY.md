@@ -96,7 +96,7 @@ docker-compose up -d
 docker-monitor.bat
 
 # Cara 2: Manual
-docker stats laravel_app laravel_queue
+docker stats autobase_app autobase_queue
 docker-compose logs -f queue
 ```
 
@@ -148,7 +148,7 @@ SHOW VARIABLES LIKE 'max_connections';
 
 ### Workers Tidak Jalan
 ```bash
-docker exec laravel_queue supervisorctl restart laravel-queue-worker:*
+docker exec autobase_queue supervisorctl restart laravel-queue-worker:*
 ```
 
 ### Memory Limit Error
@@ -160,10 +160,10 @@ memory_limit = 2048M
 ### Too Many Connections
 ```bash
 # Kurangi workers
-docker exec laravel_queue supervisorctl stop laravel-queue-worker:4
-docker exec laravel_queue supervisorctl stop laravel-queue-worker:5
-docker exec laravel_queue supervisorctl stop laravel-queue-worker:6
-docker exec laravel_queue supervisorctl stop laravel-queue-worker:7
+docker exec autobase_queue supervisorctl stop laravel-queue-worker:4
+docker exec autobase_queue supervisorctl stop laravel-queue-worker:5
+docker exec autobase_queue supervisorctl stop laravel-queue-worker:6
+docker exec autobase_queue supervisorctl stop laravel-queue-worker:7
 ```
 
 ### Check Logs
@@ -175,10 +175,10 @@ docker-compose logs -f app
 docker-compose logs -f queue
 
 # PHP-FPM logs
-docker exec laravel_app cat /var/www/html/storage/logs/php-fpm-error.log
+docker exec autobase_app cat /var/www/html/storage/logs/php-fpm-error.log
 
 # OPcache logs
-docker exec laravel_app cat /var/www/html/storage/logs/opcache.log
+docker exec autobase_app cat /var/www/html/storage/logs/opcache.log
 ```
 
 ## 📚 Additional Resources
@@ -192,8 +192,8 @@ docker exec laravel_app cat /var/www/html/storage/logs/opcache.log
 
 Setelah rebuild, pastikan:
 - [ ] All containers running: `docker-compose ps`
-- [ ] 8 queue workers active: `docker exec laravel_queue supervisorctl status`
-- [ ] PHP-FPM config valid: `docker exec laravel_app php-fpm -t`
+- [ ] 8 queue workers active: `docker exec autobase_queue supervisorctl status`
+- [ ] PHP-FPM config valid: `docker exec autobase_app php-fpm -t`
 - [ ] OPcache enabled: Check `phpinfo()` atau logs
 - [ ] Import test berhasil dengan file sample
 
