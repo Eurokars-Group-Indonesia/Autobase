@@ -12,7 +12,8 @@ COPY . .
 RUN npm run build
 
 # PHP-FPM stage
-FROM php:8.3-fpm-alpine
+# Pinned to 8.3.36 (security release 21 Oct 2026, fixes critical RCE advisory) - do not go below this
+FROM php:8.3.36-fpm-alpine
 
 # Install system dependencies
 RUN apk add --no-cache \

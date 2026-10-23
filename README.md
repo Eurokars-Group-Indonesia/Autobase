@@ -32,7 +32,7 @@ Akses aplikasi:
 ## 📦 Tech Stack (Docker)
 
 - **Nginx** - Web server dengan SSL/TLS
-- **PHP 8.3-FPM** - Application server dengan OPcache + JIT
+- **PHP 8.3.36-FPM** - Application server dengan OPcache + JIT
 - **Percona MySQL 8.0** - Database
 - **Redis** - Cache & Queue
 - **Supervisor** - Queue worker manager
