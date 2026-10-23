@@ -1,5 +1,6 @@
 # Build stage for Node.js assets
-FROM node:20-alpine AS node-builder
+# Pinned to 24.22.1 (LTS security release 20 Oct 2026) - also copied into the PHP-FPM stage below
+FROM node:24.22.1-alpine AS node-builder
 
 WORKDIR /app
 
@@ -26,10 +27,16 @@ RUN apk add --no-cache \
     mysql-client \
     supervisor \
     redis \
-    nodejs \
-    npm \
+    libstdc++ \
     icu-dev \
     shadow
+
+# Install Node.js from the pinned node image (Alpine's nodejs package lags behind security releases)
+COPY --from=node-builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && node -v && npm -v
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql zip gd pcntl opcache intl
